@@ -1,6 +1,7 @@
 "use client";
 import { useRouter } from "next/navigation";
-import { ReactNode, useState } from "react";
+import { ReactNode, useState, useEffect } from "react";
+import NotificationBell from "@/components/ui/NotificationBell";
 
 interface Props {
   title: string;
@@ -11,11 +12,20 @@ interface Props {
   children: ReactNode;
   activeTab: string;
   onTabChange: (id: string) => void;
+  headerExtra?: ReactNode;
 }
 
-export default function DashboardShell({ title, role, accentColor, icon, navItems, children, activeTab, onTabChange }: Props) {
+export default function DashboardShell({ title, role, accentColor, icon, navItems, children, activeTab, onTabChange, headerExtra }: Props) {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [userId, setUserId] = useState("guest");
+
+  useEffect(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem("user") || "{}");
+      setUserId(u.email || u.id || "guest");
+    } catch { /* ignore */ }
+  }, []);
 
   const user = (() => {
     try { return JSON.parse(localStorage.getItem("user") || "{}"); } catch { return {}; }
@@ -86,6 +96,8 @@ export default function DashboardShell({ title, role, accentColor, icon, navItem
             </svg>
           </button>
           <div className="flex items-center gap-3">
+            {headerExtra}
+            <NotificationBell userId={userId} />
             <span className="text-sm text-gray-500">{new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}</span>
             <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center text-blue-700 font-bold text-sm">
               {user.name?.charAt(0) || "U"}

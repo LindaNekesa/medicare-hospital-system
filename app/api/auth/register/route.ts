@@ -14,34 +14,38 @@ export function validatePassword(password: string): string | null {
 
 export async function POST(request: NextRequest) {
   try {
-    const { name, email, password, role, staffType, department } = await request.json();
+    const { name, email, phone, password, role, staffType, dbRole } = await request.json();
 
-    if (!name || !email || !password || !role) {
-      return NextResponse.json({ error: "All fields are required." }, { status: 400 });
+    if (!name || !email || !phone || !password || !role) {
+      return NextResponse.json({ error: "Name, email, phone, password and role are required." }, { status: 400 });
     }
 
     const pwError = validatePassword(password);
     if (pwError) return NextResponse.json({ error: pwError }, { status: 400 });
 
+    if (!email.toLowerCase().endsWith("@medicare.com")) {
+      return NextResponse.json({ error: "Email must use the @medicare.com domain." }, { status: 400 });
+    }
+
     const existing = await prisma.user.findUnique({ where: { email } });
     if (existing) return NextResponse.json({ error: "An account with this email already exists." }, { status: 409 });
 
     const hashed = await bcrypt.hash(password, 10);
+    // Use dbRole if provided (clinical roles map to MEDICAL_STAFF in DB)
+    const finalRole = dbRole || role;
     const user = await prisma.user.create({
-      data: { name, email, password: hashed, role },
+      data: { name, email, phone, password: hashed, role: finalRole },
     });
 
     // Create role-specific profile
-    if (role === "MEDICAL_STAFF" && staffType) {
+    if (finalRole === "MEDICAL_STAFF" && staffType) {
       await prisma.medicalStaff.create({
-        data: { userId: user.id, staffType, specialty: null, department: department || null },
+        data: { userId: user.id, staffType, specialty: null, department: null },
       });
-    } else if (role === "PATIENT") {
-      // Patient profile created separately via onboarding
     }
 
     const token = jwt.sign(
-      { id: user.id, email: user.email, name: user.name, role: user.role },
+      { id: user.id, email: user.email, name: user.name, role: user.role, displayRole: role },
       process.env.JWT_SECRET || "medicare-jwt-secret-2024",
       { expiresIn: "8h" }
     );

@@ -10,6 +10,7 @@ const ROLE_ROUTES: Record<string, string> = {
   CAREGIVER: "/dashboard/caregiver",
   INSURANCE: "/dashboard/insurance",
   GOVERNMENT: "/dashboard/government",
+  LAB_TECH: "/dashboard/labtech",
 };
 
 export default function DashboardRouter() {
