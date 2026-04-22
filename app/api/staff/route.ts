@@ -1,20 +1,26 @@
-// /app/api/staff/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import {prisma} from "@/lib/prisma";
+import { NextResponse } from "next/server";
+import { prisma } from "@/lib/prisma";
 
 export async function GET() {
-  const doctors = await prisma.user.findMany({
-    where: { role: "DOCTOR" },
-    include: {
-      doctorAppointments: {
-        where: { status: "PENDING" },
-        select: { id: true, appointmentDate: true, patient: { select: { firstName: true, lastName: true } } },
+  try {
+    const staff = await prisma.user.findMany({
+      where: { role: "MEDICAL_STAFF" },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        role: true,
+        phone: true,
+        createdAt: true,
+        medicalStaff: {
+          select: { staffType: true, specialty: true, department: true, licenseNo: true },
+        },
       },
-      tasks: {
-        where: { status: "PENDING" },
-        select: { id: true, title: true, dueDate: true },
-      },
-    },
-  });
-  return NextResponse.json(doctors);
+      orderBy: { name: "asc" },
+    });
+    return NextResponse.json(staff);
+  } catch (error) {
+    console.error(error);
+    return NextResponse.json({ error: "Failed to fetch staff" }, { status: 500 });
+  }
 }

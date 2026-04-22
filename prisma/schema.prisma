@@ -4,4 +4,211 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      =
+  url      = env("DATABASE_URL")
+}
+
+// ── Users & Auth ─────────────────────────────────────────────────────────────
+
+model User {
+  id           Int      @id @default(autoincrement())
+  name         String
+  email        String   @unique
+  password     String
+  role         String   @default("PATIENT")
+  phone        String?
+  resetToken   String?
+  resetExpiry  DateTime?
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  patient          Patient?
+  medicalStaff     MedicalStaff?
+  caregiver        Caregiver?
+  insuranceRep     InsuranceRep?
+  govRep           GovernmentRep?
+  clinicalSummaries ClinicalSummary[]
+}
+
+// ── Patient ───────────────────────────────────────────────────────────────────
+
+model Patient {
+  id               Int      @id @default(autoincrement())
+  userId           Int      @unique
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  firstName        String
+  lastName         String
+  gender           String
+  dateOfBirth      DateTime
+  bloodType        String?
+  address          String?
+  phone            String?
+  insurance        String?
+  emergencyContact String?
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  appointments   Appointment[]
+  medicalRecords MedicalRecord[]
+  bills          Bill[]
+}
+
+// ── Medical Staff ─────────────────────────────────────────────────────────────
+
+model MedicalStaff {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @unique
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  staffType  String
+  specialty  String?
+  licenseNo  String?
+  department String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  appointments Appointment[]
+}
+
+// ── Caregiver ─────────────────────────────────────────────────────────────────
+
+model Caregiver {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  relation  String?
+  createdAt DateTime @default(now())
+}
+
+// ── Insurance Rep ─────────────────────────────────────────────────────────────
+
+model InsuranceRep {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  company   String
+  licenseNo String?
+  createdAt DateTime @default(now())
+}
+
+// ── Government / Regulatory Rep ───────────────────────────────────────────────
+
+model GovernmentRep {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  agency    String
+  position  String?
+  createdAt DateTime @default(now())
+}
+
+// ── Appointments ──────────────────────────────────────────────────────────────
+
+model Appointment {
+  id        Int      @id @default(autoincrement())
+  patientId Int
+  patient   Patient  @relation(fields: [patientId], references: [id])
+  staffId   Int?
+  staff     MedicalStaff? @relation(fields: [staffId], references: [id])
+  date      DateTime
+  time      String
+  reason    String?
+  status    String   @default("PENDING")
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ── Medical Records ───────────────────────────────────────────────────────────
+
+model MedicalRecord {
+  id           Int      @id @default(autoincrement())
+  patientId    Int
+  patient      Patient  @relation(fields: [patientId], references: [id])
+  diagnosis    String
+  treatment    String?
+  prescription String?
+  notes        String?
+  visitDate    DateTime @default(now())
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  clinicalSummary ClinicalSummary?
+}
+
+// ── Clinical Summary ──────────────────────────────────────────────────────────
+
+model ClinicalSummary {
+  id               Int           @id @default(autoincrement())
+  recordId         Int           @unique
+  authorId         Int
+  chiefComplaint   String?
+  historyOfIllness String?
+  physicalExam     String?
+  investigations   String?
+  diagnosis        String
+  differentials    String?
+  managementPlan   String?
+  prognosis        String?
+  doctorSignature  String?
+  createdAt        DateTime      @default(now())
+  updatedAt        DateTime      @updatedAt
+  record           MedicalRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  author           User          @relation(fields: [authorId], references: [id])
+}
+
+// ── Billing ───────────────────────────────────────────────────────────────────
+
+model Bill {
+  id            Int      @id @default(autoincrement())
+  patientId     Int
+  patient       Patient  @relation(fields: [patientId], references: [id])
+  amount        Float
+  description   String?
+  status        String   @default("UNPAID")
+  paymentMethod String?
+  paidAt        DateTime?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+// ── Tasks ─────────────────────────────────────────────────────────────────────
+
+model Task {
+  id          Int      @id @default(autoincrement())
+  title       String
+  description String?
+  assignedTo  Int?
+  status      String   @default("PENDING")
+  dueDate     DateTime?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// ── Audit Log ─────────────────────────────────────────────────────────────────
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  action    String
+  entity    String
+  entityId  Int?
+  timestamp DateTime @default(now())
+}
+
+// ── Hospital Settings ─────────────────────────────────────────────────────────
+
+model HospitalSettings {
+  id                 Int      @id @default(autoincrement())
+  hospitalName       String
+  emailNotifications String   @default("ENABLED")
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+// ── Department ────────────────────────────────────────────────────────────────
+
+model Department {
+  id        Int      @id @default(autoincrement())
+  name      String   @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

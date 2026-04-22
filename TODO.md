@@ -1,4 +1,4 @@
-# Medicare Hospital System agTriagi,cCl nicmlmau&m ryLabLRb Ruquests TODOts TODO
+PPPPPPP# Medicare Hospital System agTriagi,cCl nicmlmau&m ryLabLRb Ruquests TODOts TODO
 
 ## s (Approve[aApprovsd with new models (ClinicalSummary, Triage, LabRequest).\n2. [ ] Run Prisma migrations (`npx prisma generate && npx prisma db push`).
 1.. x ]eate API routes: /api/clinical-sunrwies, /apiCl aicallummbryeqTrsagR).LbRques.\n2.. [ ]d liPrisma migrations (b services: clinical.&&[hs: useClinicalSumm).
