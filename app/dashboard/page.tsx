@@ -47,11 +47,12 @@ const STAFF_TYPE_ROUTES: Record<string, string> = {
   ICU_SPECIALIST:      "/dashboard/staff",
   PSYCHIATRIST:        "/dashboard/staff",
   CLINICAL_OFFICER:    "/dashboard/staff",
-  // Allied health → staff dashboard (generic)
+  // Allied health
+  DENTAL_OFFICER:      "/dashboard/dental",
+  SOCIAL_WORKER:       "/dashboard/socialwork",
+  // Others → staff dashboard (generic)
   NUTRITIONIST:        "/dashboard/staff",
-  DENTAL_OFFICER:      "/dashboard/staff",
   OPTOMETRIST:         "/dashboard/staff",
-  SOCIAL_WORKER:       "/dashboard/staff",
 };
 
 export default function DashboardRouter() {

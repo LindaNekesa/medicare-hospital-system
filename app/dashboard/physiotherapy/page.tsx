@@ -103,13 +103,62 @@ export default function PhysiotherapyDashboard() {
       )}
 
       {tab === "assessment" && (
-        <div className="bg-white rounded-xl p-8 text-center text-gray-400 border"><div className="text-4xl mb-3">🩺</div><p className="font-medium text-gray-600">Patient Assessment Forms</p></div>
+        <div className="space-y-4">
+          <h2 className="text-lg font-bold text-gray-900">Patient Assessment</h2>
+          {PATIENTS.map(p => (
+            <div key={p.id} className="bg-white rounded-xl border shadow-sm p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1">
+                  <p className="font-semibold text-gray-900">{p.name}</p>
+                  <p className="text-sm text-teal-700">{p.condition}</p>
+                  <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                    {[["Pain Score", "4/10"], ["ROM", "65%"], ["Strength", "3/5"], ["Mobility", "Assisted"]].map(([k, v]) => (
+                      <div key={k} className="bg-gray-50 rounded-lg p-2">
+                        <p className="text-gray-400">{k}</p>
+                        <p className="font-semibold text-gray-800">{v}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <button className="text-xs bg-teal-600 text-white px-3 py-1.5 rounded-lg hover:bg-teal-700 font-medium shrink-0">Update Assessment</button>
+              </div>
+            </div>
+          ))}
+        </div>
       )}
       {tab === "progress" && (
-        <div className="bg-white rounded-xl p-8 text-center text-gray-400 border"><div className="text-4xl mb-3">📈</div><p className="font-medium text-gray-600">Progress Notes</p></div>
+        <div className="space-y-4">
+          <h2 className="text-lg font-bold text-gray-900">Progress Notes</h2>
+          {PATIENTS.map(p => (
+            <div key={p.id} className="bg-white rounded-xl border shadow-sm p-4">
+              <p className="font-semibold text-gray-900">{p.name}</p>
+              <p className="text-sm text-teal-700 mb-2">{p.condition}</p>
+              <div className="space-y-2">
+                {[{ date: "Apr 20, 2026", note: "Patient showing improved ROM. Pain reduced from 6/10 to 4/10. Progressed to active exercises." },
+                  { date: "Apr 15, 2026", note: "Initial session. Baseline assessment completed. Passive ROM exercises commenced." }].map(n => (
+                  <div key={n.date} className="p-2 bg-gray-50 rounded-lg">
+                    <p className="text-xs text-gray-400 font-medium">{n.date}</p>
+                    <p className="text-sm text-gray-700 mt-0.5">{n.note}</p>
+                  </div>
+                ))}
+              </div>
+              <button className="mt-2 text-xs bg-teal-100 text-teal-700 hover:bg-teal-200 px-3 py-1.5 rounded-lg font-medium">+ Add Note</button>
+            </div>
+          ))}
+        </div>
       )}
       {tab === "equipment" && (
-        <div className="bg-white rounded-xl p-8 text-center text-gray-400 border"><div className="text-4xl mb-3">🔧</div><p className="font-medium text-gray-600">Equipment Management</p></div>
+        <div className="space-y-4">
+          <h2 className="text-lg font-bold text-gray-900">Equipment Management</h2>
+          <div className="bg-white rounded-xl border shadow-sm p-5 space-y-3">
+            {[["Parallel Bars", "Good condition", "✅"], ["Treadmill", "Serviced Apr 1, 2026", "✅"], ["Exercise Bike", "Needs calibration", "⚠️"], ["Ultrasound Therapy Unit", "Operational", "✅"], ["TENS Machine", "Battery low", "⚠️"], ["Resistance Bands (Set)", "Stocked", "✅"], ["Balance Board", "Good condition", "✅"], ["Hydrotherapy Pool", "Operational", "✅"]].map(([item, note, status]) => (
+              <div key={item as string} className="flex items-center justify-between py-2 border-b last:border-0">
+                <div><p className="text-sm font-medium text-gray-900">{item as string}</p><p className="text-xs text-gray-400">{note as string}</p></div>
+                <span className={`font-bold ${status === "✅" ? "text-green-600" : "text-yellow-500"}`}>{status as string}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       )}
       {tab === "profile" && <UserProfile />}
     </DashboardShell>

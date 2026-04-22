@@ -36,10 +36,48 @@ async function main() {
   const radio = await prisma.user.upsert({ where:{email:'radiographer@medicare.com'}, update:{role:'MEDICAL_STAFF'}, create:{name:'Grace Adhiambo',email:'radiographer@medicare.com',password:await h('Radio1234!'),role:'MEDICAL_STAFF'} });
   await prisma.medicalStaff.upsert({ where:{userId:radio.id}, update:{staffType:'RADIOGRAPHER'}, create:{userId:radio.id,staffType:'RADIOGRAPHER',specialty:'Diagnostic Radiology',department:'Radiology & Imaging'} });
 
-  console.log('\nSeed complete!');
+  // Pharmacist
+  const pharma = await prisma.user.upsert({ where:{email:'pharmacy@medicare.com'}, update:{role:'MEDICAL_STAFF'}, create:{name:'Kevin Ochieng',email:'pharmacy@medicare.com',password:await h('Pharma1234!'),role:'MEDICAL_STAFF'} });
+  await prisma.medicalStaff.upsert({ where:{userId:pharma.id}, update:{staffType:'PHARMACIST'}, create:{userId:pharma.id,staffType:'PHARMACIST',specialty:'Clinical Pharmacy',department:'Pharmacy'} });
+
+  // Physiotherapist
+  const physio = await prisma.user.upsert({ where:{email:'physio@medicare.com'}, update:{role:'MEDICAL_STAFF'}, create:{name:'Amina Waweru',email:'physio@medicare.com',password:await h('Physio1234!'),role:'MEDICAL_STAFF'} });
+  await prisma.medicalStaff.upsert({ where:{userId:physio.id}, update:{staffType:'PHYSIOTHERAPIST'}, create:{userId:physio.id,staffType:'PHYSIOTHERAPIST',specialty:'Musculoskeletal Physiotherapy',department:'Physiotherapy'} });
+
+  // Paramedic / Emergency
+  const para = await prisma.user.upsert({ where:{email:'paramedic@medicare.com'}, update:{role:'MEDICAL_STAFF'}, create:{name:'Brian Mutua',email:'paramedic@medicare.com',password:await h('Para1234!'),role:'MEDICAL_STAFF'} });
+  await prisma.medicalStaff.upsert({ where:{userId:para.id}, update:{staffType:'PARAMEDIC'}, create:{userId:para.id,staffType:'PARAMEDIC',specialty:'Emergency Medicine',department:'Emergency & Casualty'} });
+
+  // Receptionist
+  const recep = await prisma.user.upsert({ where:{email:'reception@medicare.com'}, update:{role:'MEDICAL_STAFF'}, create:{name:'Mary Anne Njeri',email:'reception@medicare.com',password:await h('Recep1234!'),role:'MEDICAL_STAFF'} });
+  await prisma.medicalStaff.upsert({ where:{userId:recep.id}, update:{staffType:'RECEPTIONIST'}, create:{userId:recep.id,staffType:'RECEPTIONIST',department:'Front Office'} });
+
+  // Dental Officer
+  const dental = await prisma.user.upsert({ where:{email:'dental@medicare.com'}, update:{role:'MEDICAL_STAFF'}, create:{name:'Dr. Faith Kamau',email:'dental@medicare.com',password:await h('Dental1234!'),role:'MEDICAL_STAFF'} });
+  await prisma.medicalStaff.upsert({ where:{userId:dental.id}, update:{staffType:'DENTAL_OFFICER'}, create:{userId:dental.id,staffType:'DENTAL_OFFICER',specialty:'General Dentistry',department:'Dental'} });
+
+  // Social Worker
+  const social = await prisma.user.upsert({ where:{email:'socialwork@medicare.com'}, update:{role:'MEDICAL_STAFF'}, create:{name:'Ruth Akinyi',email:'socialwork@medicare.com',password:await h('Social1234!'),role:'MEDICAL_STAFF'} });
+  await prisma.medicalStaff.upsert({ where:{userId:social.id}, update:{staffType:'SOCIAL_WORKER'}, create:{userId:social.id,staffType:'SOCIAL_WORKER',specialty:'Medical Social Work',department:'Social Work'} });
+
+  // Lab Technician
+  const labtech = await prisma.user.upsert({ where:{email:'labtech@medicare.com'}, update:{role:'MEDICAL_STAFF'}, create:{name:'Dennis Otieno',email:'labtech@medicare.com',password:await h('Lab1234!'),role:'MEDICAL_STAFF'} });
+  await prisma.medicalStaff.upsert({ where:{userId:labtech.id}, update:{staffType:'LAB_TECH'}, create:{userId:labtech.id,staffType:'LAB_TECH',specialty:'Clinical Laboratory Science',department:'Laboratory'} });
+
+  console.log('\nSeed complete! All accounts:');
+  console.log('  erimalinda26@gmail.com    Linda@2000   (ADMIN — Linda Nekesa)');
   console.log('  admin@medicare.com        Admin1234!   (ADMIN)');
   console.log('  management@medicare.com   Mgmt1234!    (HOSPITAL_MANAGEMENT)');
-  console.log('  doctor@medicare.com       Doctor1234!  (MEDICAL_STAFF)');
+  console.log('  doctor@medicare.com       Doctor1234!  (MEDICAL_STAFF — DOCTOR)');
+  console.log('  nurse@medicare.com        Nurse1234!   (MEDICAL_STAFF — NURSE)');
+  console.log('  radiographer@medicare.com Radio1234!   (MEDICAL_STAFF — RADIOGRAPHER)');
+  console.log('  pharmacy@medicare.com     Pharma1234!  (MEDICAL_STAFF — PHARMACIST)');
+  console.log('  physio@medicare.com       Physio1234!  (MEDICAL_STAFF — PHYSIOTHERAPIST)');
+  console.log('  paramedic@medicare.com    Para1234!    (MEDICAL_STAFF — PARAMEDIC)');
+  console.log('  reception@medicare.com    Recep1234!   (MEDICAL_STAFF — RECEPTIONIST)');
+  console.log('  dental@medicare.com       Dental1234!  (MEDICAL_STAFF — DENTAL_OFFICER)');
+  console.log('  socialwork@medicare.com   Social1234!  (MEDICAL_STAFF — SOCIAL_WORKER)');
+  console.log('  labtech@medicare.com      Lab1234!     (MEDICAL_STAFF — LAB_TECH)');
   console.log('  patient@medicare.com      Patient1234! (PATIENT)');
   console.log('  caregiver@medicare.com    Care1234!    (CAREGIVER)');
   console.log('  insurance@medicare.com    Insure1234!  (INSURANCE)');
