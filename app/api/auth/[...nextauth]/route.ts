@@ -4,7 +4,7 @@ import NextAuth, { AuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { PrismaAdapter } from "@next-auth/prisma-adapter"
 import { prisma } from "@/prisma/client"
-import bcrypt from "bcrypt"
+import bcrypt from "bcryptjs"
 
 // Extend NextAuth types for role
 declare module "next-auth" {
@@ -42,7 +42,13 @@ export const authOptions: AuthOptions = {
         const isValid = await bcrypt.compare(credentials.password, user.password)
         if (!isValid) return null
 
-        return user // ✅ id is already string
+        // NextAuth User requires id as string
+        return {
+          id: String(user.id),
+          name: user.name,
+          email: user.email,
+          role: user.role,
+        }
       },
     }),
   ],
