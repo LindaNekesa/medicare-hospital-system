@@ -269,7 +269,7 @@ export default function ManagementDashboard() {
       )}
 
       {tab === "schedule_mgmt" && <ScheduleTab />}
-      {tab === "beds" && <BedsTab />
+      {tab === "beds" && <BedsTab />}
 
       {tab === "finance" && (
         <div className="space-y-4">
