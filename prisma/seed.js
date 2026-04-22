@@ -32,6 +32,10 @@ async function main() {
   const gov = await prisma.user.upsert({ where:{email:'gov@medicare.com'}, update:{}, create:{name:'MOH Inspector',email:'gov@medicare.com',password:await h('Gov1234!'),role:'GOVERNMENT'} });
   await prisma.governmentRep.upsert({ where:{userId:gov.id}, update:{}, create:{userId:gov.id,agency:'Ministry of Health',position:'Health Inspector'} });
 
+  // Radiographer
+  const radio = await prisma.user.upsert({ where:{email:'radiographer@medicare.com'}, update:{role:'MEDICAL_STAFF'}, create:{name:'Grace Adhiambo',email:'radiographer@medicare.com',password:await h('Radio1234!'),role:'MEDICAL_STAFF'} });
+  await prisma.medicalStaff.upsert({ where:{userId:radio.id}, update:{staffType:'RADIOGRAPHER'}, create:{userId:radio.id,staffType:'RADIOGRAPHER',specialty:'Diagnostic Radiology',department:'Radiology & Imaging'} });
+
   console.log('\nSeed complete!');
   console.log('  admin@medicare.com        Admin1234!   (ADMIN)');
   console.log('  management@medicare.com   Mgmt1234!    (HOSPITAL_MANAGEMENT)');

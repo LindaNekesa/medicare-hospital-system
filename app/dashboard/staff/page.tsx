@@ -443,28 +443,86 @@ function LabRequestsTab() {
   );
 }
 
+// ── RBAC: which staffTypes can access which tabs ──────────────────────────────
+const DOCTOR_TYPES = new Set(["DOCTOR","SURGEON","SPECIALIST","RESIDENT_DOCTOR","INTERN_DOCTOR","ANESTHESIOLOGIST","ICU_SPECIALIST","PSYCHIATRIST","CLINICAL_OFFICER"]);
+const NURSE_TYPES  = new Set(["NURSE","SENIOR_NURSE","MIDWIFE","NURSE_ANESTHETIST"]);
+
+function AccessDenied({ tab }: { tab: string }) {
+  return (
+    <div className="bg-white rounded-xl border border-red-200 p-10 text-center">
+      <div className="text-4xl mb-3">🚫</div>
+      <p className="font-semibold text-red-700 text-lg">Access Restricted</p>
+      <p className="text-sm text-gray-500 mt-2">Your role does not have permission to access <strong>{tab}</strong>.</p>
+      <p className="text-xs text-gray-400 mt-1">Contact your administrator if you believe this is an error.</p>
+    </div>
+  );
+}
+
 // ── Main Staff Dashboard ──────────────────────────────────────────────────────
 export default function MedicalStaffDashboard() {
   const [tab, setTab] = useState("overview");
+  const [staffType, setStaffType] = useState<string>("");
+
+  useEffect(() => {
+    try {
+      const u = JSON.parse(localStorage.getItem("user") || "{}");
+      setStaffType(u.staffType || "DOCTOR");
+    } catch { /* ignore */ }
+  }, []);
+
+  const isDoctor = DOCTOR_TYPES.has(staffType);
+  const isNurse  = NURSE_TYPES.has(staffType);
+
+  // Build nav based on staffType
+  const navItems = [
+    { id: "overview",  label: "Overview",        icon: "📊" },
+    ...(isDoctor || isNurse ? [{ id: "triage", label: "Triage", icon: "🚨" }] : []),
+    { id: "patients",  label: "My Patients",     icon: "🏥" },
+    ...(isDoctor ? [{ id: "lab", label: "Lab Requests", icon: "🔬" }] : []),
+    { id: "schedule",  label: "Schedule",        icon: "📅" },
+    { id: "profile",   label: "My Profile",      icon: "👤" },
+  ];
+
+  const staffLabel = staffType ? staffType.replace(/_/g, " ") : "Medical Staff";
 
   const content: Record<string, ReactNode> = {
     overview: (
       <div className="space-y-6">
-        <h2 className="text-xl font-bold text-gray-900">Today&apos;s Overview</h2>
+        <div>
+          <h2 className="text-xl font-bold text-gray-900">Today&apos;s Overview</h2>
+          <p className="text-sm text-gray-500 mt-0.5">Welcome, {staffLabel}</p>
+        </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <StatCard label="Today's Patients" value="12" icon="🏥" color="bg-blue-600" />
-          <StatCard label="Triage Queue" value="4" icon="🚨" color="bg-red-500" />
-          <StatCard label="Lab Requests" value="3" icon="🔬" color="bg-yellow-500" />
-          <StatCard label="Clinical Summaries" value="2" icon="📋" color="bg-purple-600" />
+          {(isDoctor || isNurse) && <StatCard label="Triage Queue" value="4" icon="🚨" color="bg-red-500" />}
+          {isDoctor && <StatCard label="Lab Requests" value="3" icon="🔬" color="bg-yellow-500" />}
+          <StatCard label="Schedule" value="8" icon="📅" color="bg-green-600" />
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {[["Triage","triage","🚨","bg-red-50 border-red-100 text-red-700"],["Lab Requests","lab","🔬","bg-yellow-50 border-yellow-100 text-yellow-700"],["My Patients","patients","🏥","bg-blue-50 border-blue-100 text-blue-700"],["Schedule","schedule","📅","bg-green-50 border-green-100 text-green-700"]].map(([label,id,icon,cls])=>(
-            <button key={id} onClick={() => setTab(id)} className={`rounded-xl p-4 border text-left hover:shadow-md transition-shadow ${cls}`}>
-              <div className="text-2xl mb-1">{icon}</div>
-              <p className="font-semibold text-sm">{label}</p>
+          {(isDoctor || isNurse) && (
+            <button onClick={() => setTab("triage")} className="rounded-xl p-4 border text-left hover:shadow-md transition-shadow bg-red-50 border-red-100 text-red-700">
+              <div className="text-2xl mb-1">🚨</div>
+              <p className="font-semibold text-sm">Triage</p>
               <p className="text-xs opacity-70 mt-0.5">Open →</p>
             </button>
-          ))}
+          )}
+          {isDoctor && (
+            <button onClick={() => setTab("lab")} className="rounded-xl p-4 border text-left hover:shadow-md transition-shadow bg-yellow-50 border-yellow-100 text-yellow-700">
+              <div className="text-2xl mb-1">🔬</div>
+              <p className="font-semibold text-sm">Lab Requests</p>
+              <p className="text-xs opacity-70 mt-0.5">Open →</p>
+            </button>
+          )}
+          <button onClick={() => setTab("patients")} className="rounded-xl p-4 border text-left hover:shadow-md transition-shadow bg-blue-50 border-blue-100 text-blue-700">
+            <div className="text-2xl mb-1">🏥</div>
+            <p className="font-semibold text-sm">My Patients</p>
+            <p className="text-xs opacity-70 mt-0.5">Open →</p>
+          </button>
+          <button onClick={() => setTab("schedule")} className="rounded-xl p-4 border text-left hover:shadow-md transition-shadow bg-green-50 border-green-100 text-green-700">
+            <div className="text-2xl mb-1">📅</div>
+            <p className="font-semibold text-sm">Schedule</p>
+            <p className="text-xs opacity-70 mt-0.5">Open →</p>
+          </button>
         </div>
         <div className="bg-white rounded-xl p-5 shadow-sm border">
           <h3 className="font-semibold text-gray-800 mb-3">Today&apos;s Schedule</h3>
@@ -478,15 +536,15 @@ export default function MedicalStaffDashboard() {
         </div>
       </div>
     ),
-    triage:   <TriageTab />,
-    lab:      <LabRequestsTab />,
+    triage:   (isDoctor || isNurse) ? <TriageTab /> : <AccessDenied tab="Triage" />,
+    lab:      isDoctor ? <LabRequestsTab /> : <AccessDenied tab="Lab Requests" />,
     patients: <div className="bg-white rounded-xl p-8 text-center text-gray-400 border"><div className="text-4xl mb-3">🏥</div><p className="font-medium text-gray-600">My Patients</p></div>,
     schedule: <div className="bg-white rounded-xl p-8 text-center text-gray-400 border"><div className="text-4xl mb-3">📅</div><p className="font-medium text-gray-600">Schedule</p></div>,
     profile:  <UserProfile />,
   };
 
   return (
-    <DashboardShell title="Staff Portal" role="Medical Staff" accentColor="bg-blue-700" icon="🩺" navItems={NAV} activeTab={tab} onTabChange={setTab}>
+    <DashboardShell title="Staff Portal" role={staffLabel} accentColor="bg-blue-700" icon="🩺" navItems={navItems} activeTab={tab} onTabChange={setTab}>
       {content[tab]}
     </DashboardShell>
   );

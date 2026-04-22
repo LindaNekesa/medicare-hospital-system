@@ -2,15 +2,56 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
+// Role → dashboard route
 const ROLE_ROUTES: Record<string, string> = {
-  ADMIN: "/dashboard/admin",
-  HOSPITAL_MANAGEMENT: "/dashboard/management",
-  MEDICAL_STAFF: "/dashboard/staff",
-  PATIENT: "/dashboard/patient",
-  CAREGIVER: "/dashboard/caregiver",
-  INSURANCE: "/dashboard/insurance",
-  GOVERNMENT: "/dashboard/government",
-  LAB_TECH: "/dashboard/labtech",
+  ADMIN:              "/dashboard/admin",
+  HOSPITAL_MANAGEMENT:"/dashboard/management",
+  MEDICAL_STAFF:      "/dashboard/staff",       // fallback for generic staff
+  PATIENT:            "/dashboard/patient",
+  CAREGIVER:          "/dashboard/caregiver",
+  INSURANCE:          "/dashboard/insurance",
+  GOVERNMENT:         "/dashboard/government",
+};
+
+// staffType → specific staff dashboard (overrides MEDICAL_STAFF route)
+const STAFF_TYPE_ROUTES: Record<string, string> = {
+  // Lab
+  LAB_TECH:            "/dashboard/labtech",
+  LAB_SCIENTIST:       "/dashboard/labtech",
+  // Radiology
+  RADIOGRAPHER:        "/dashboard/radiographer",
+  RADIOLOGIST:         "/dashboard/radiographer",
+  // Nursing
+  NURSE:               "/dashboard/nurse",
+  SENIOR_NURSE:        "/dashboard/nurse",
+  MIDWIFE:             "/dashboard/nurse",
+  NURSE_ANESTHETIST:   "/dashboard/nurse",
+  // Pharmacy
+  PHARMACIST:          "/dashboard/pharmacy",
+  PHARMACY_TECH:       "/dashboard/pharmacy",
+  // Physiotherapy
+  PHYSIOTHERAPIST:     "/dashboard/physiotherapy",
+  OCCUPATIONAL_THERAPIST: "/dashboard/physiotherapy",
+  // Emergency
+  PARAMEDIC:           "/dashboard/emergency",
+  EMT:                 "/dashboard/emergency",
+  // Reception
+  RECEPTIONIST:        "/dashboard/reception",
+  // Doctors & Clinical → staff dashboard (has triage + lab requests)
+  DOCTOR:              "/dashboard/staff",
+  SURGEON:             "/dashboard/staff",
+  SPECIALIST:          "/dashboard/staff",
+  RESIDENT_DOCTOR:     "/dashboard/staff",
+  INTERN_DOCTOR:       "/dashboard/staff",
+  ANESTHESIOLOGIST:    "/dashboard/staff",
+  ICU_SPECIALIST:      "/dashboard/staff",
+  PSYCHIATRIST:        "/dashboard/staff",
+  CLINICAL_OFFICER:    "/dashboard/staff",
+  // Allied health → staff dashboard (generic)
+  NUTRITIONIST:        "/dashboard/staff",
+  DENTAL_OFFICER:      "/dashboard/staff",
+  OPTOMETRIST:         "/dashboard/staff",
+  SOCIAL_WORKER:       "/dashboard/staff",
 };
 
 export default function DashboardRouter() {
@@ -21,6 +62,14 @@ export default function DashboardRouter() {
       const raw = localStorage.getItem("user");
       if (!raw) { router.replace("/login"); return; }
       const user = JSON.parse(raw);
+
+      // Check staffType first for granular routing
+      if (user.role === "MEDICAL_STAFF" && user.staffType) {
+        const staffPath = STAFF_TYPE_ROUTES[user.staffType];
+        if (staffPath) { router.replace(staffPath); return; }
+      }
+
+      // Fall back to role-based routing
       const path = ROLE_ROUTES[user.role] || "/dashboard/patient";
       router.replace(path);
     } catch {

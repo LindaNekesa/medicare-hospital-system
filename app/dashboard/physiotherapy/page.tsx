@@ -1,0 +1,117 @@
+"use client";
+import { useState } from "react";
+import DashboardShell from "@/components/layout/DashboardShell";
+import UserProfile from "@/components/profile/UserProfile";
+
+const NAV = [
+  { id: "overview",    label: "Overview",          icon: "📊" },
+  { id: "referrals",   label: "Referrals",         icon: "📥" },
+  { id: "assessment",  label: "Assessment",        icon: "🩺" },
+  { id: "treatment",   label: "Treatment Plans",   icon: "💪" },
+  { id: "progress",    label: "Progress Notes",    icon: "📈" },
+  { id: "equipment",   label: "Equipment",         icon: "🔧" },
+  { id: "profile",     label: "My Profile",        icon: "👤" },
+];
+
+const PATIENTS = [
+  { id:"P-001", name:"Peter Mwangi",  condition:"Post-op Knee Replacement", sessions:8,  goal:"Full ROM restoration",    status:"Active",   nextSession:"Apr 9, 2026 10:00" },
+  { id:"P-002", name:"Grace Otieno",  condition:"Lower Back Pain",          sessions:4,  goal:"Pain reduction, mobility", status:"Active",   nextSession:"Apr 9, 2026 11:00" },
+  { id:"P-003", name:"James Kariuki", condition:"Stroke Rehabilitation",    sessions:15, goal:"Gait retraining",          status:"Ongoing",  nextSession:"Apr 10, 2026 09:00" },
+];
+
+export default function PhysiotherapyDashboard() {
+  const [tab, setTab] = useState("overview");
+
+  return (
+    <DashboardShell title="Physiotherapy" role="Physiotherapist" accentColor="bg-teal-700" icon="💪" navItems={NAV} activeTab={tab} onTabChange={setTab}>
+
+      {tab === "overview" && (
+        <div className="space-y-6">
+          <h2 className="text-xl font-bold text-gray-900">Physiotherapy Overview</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {[["Active Patients",PATIENTS.length,"bg-teal-600","💪"],["Sessions Today",6,"bg-blue-600","📅"],["New Referrals",2,"bg-yellow-500","📥"],["Completed Goals",3,"bg-green-600","✅"]].map(([l,v,c,i])=>(
+              <div key={l as string} className={`${c} text-white rounded-xl p-5 shadow-sm`}>
+                <div className="flex items-center justify-between mb-2"><span className="text-2xl">{i}</span><span className="text-3xl font-bold">{v}</span></div>
+                <p className="text-sm font-medium opacity-90">{l as string}</p>
+              </div>
+            ))}
+          </div>
+          <div className="bg-white rounded-xl border shadow-sm p-5">
+            <h3 className="font-semibold text-gray-800 mb-3">Physiotherapist Responsibilities</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-sm">
+              {[["🩺 Patient Assessment","Assess musculoskeletal and neurological function"],
+                ["💪 Exercise Therapy","Design and supervise therapeutic exercise programs"],
+                ["🤲 Manual Therapy","Joint mobilisation, soft tissue techniques"],
+                ["📋 Treatment Planning","Develop individualised rehabilitation plans"],
+                ["📈 Progress Monitoring","Track and document patient progress"],
+                ["🏃 Gait Training","Assist patients in relearning to walk"],
+                ["💬 Patient Education","Teach home exercise programs"],
+                ["🔧 Equipment","Prescribe mobility aids and orthotics"]].map(([t,d])=>(
+                <div key={t as string} className="flex items-start gap-2 p-2 bg-gray-50 rounded-lg">
+                  <span className="shrink-0">{(t as string).split(" ")[0]}</span>
+                  <div><p className="font-medium text-gray-800 text-xs">{(t as string).slice(3)}</p><p className="text-xs text-gray-500">{d as string}</p></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {tab === "referrals" && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-bold text-gray-900">Physiotherapy Referrals</h2>
+          <div className="space-y-3">
+            {[{patient:"Ali Hassan",condition:"Post-cardiac surgery mobility",doctor:"Dr. Sarah Johnson",date:"Apr 8, 2026",urgency:"URGENT"},
+              {patient:"Mary Wanjiku",condition:"Antenatal pelvic floor exercises",doctor:"Dr. Achieng Otieno",date:"Apr 8, 2026",urgency:"ROUTINE"}].map(r=>(
+              <div key={r.patient} className={`bg-white rounded-xl border-l-4 shadow-sm p-4 ${r.urgency==="URGENT"?"border-orange-500":"border-teal-400"}`}>
+                <div className="flex items-start justify-between">
+                  <div>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${r.urgency==="URGENT"?"bg-orange-100 text-orange-700":"bg-green-100 text-green-700"}`}>{r.urgency}</span>
+                    <p className="font-semibold text-gray-900 mt-1">{r.patient}</p>
+                    <p className="text-sm text-teal-700">{r.condition}</p>
+                    <p className="text-xs text-gray-500 mt-1">From: {r.doctor} · {r.date}</p>
+                  </div>
+                  <button className="text-xs bg-teal-600 text-white px-3 py-1.5 rounded-lg hover:bg-teal-700 font-medium shrink-0">Accept</button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {tab === "treatment" && (
+        <div className="space-y-4">
+          <h2 className="text-lg font-bold text-gray-900">Treatment Plans</h2>
+          {PATIENTS.map(p=>(
+            <div key={p.id} className="bg-white rounded-xl border shadow-sm p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1">
+                  <p className="font-semibold text-gray-900">{p.name}</p>
+                  <p className="text-sm text-teal-700">{p.condition}</p>
+                  <p className="text-xs text-gray-500 mt-1">Goal: {p.goal}</p>
+                  <p className="text-xs text-gray-400">Sessions completed: {p.sessions} · Next: {p.nextSession}</p>
+                  <div className="mt-2 bg-gray-100 rounded-full h-2 overflow-hidden">
+                    <div className="h-full bg-teal-500 rounded-full" style={{width:`${Math.min((p.sessions/20)*100,100)}%`}} />
+                  </div>
+                  <p className="text-xs text-gray-400 mt-0.5">{p.sessions}/20 sessions</p>
+                </div>
+                <span className={`px-2 py-0.5 rounded-full text-xs font-medium shrink-0 ${p.status==="Active"?"bg-green-100 text-green-700":"bg-blue-100 text-blue-700"}`}>{p.status}</span>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {tab === "assessment" && (
+        <div className="bg-white rounded-xl p-8 text-center text-gray-400 border"><div className="text-4xl mb-3">🩺</div><p className="font-medium text-gray-600">Patient Assessment Forms</p></div>
+      )}
+      {tab === "progress" && (
+        <div className="bg-white rounded-xl p-8 text-center text-gray-400 border"><div className="text-4xl mb-3">📈</div><p className="font-medium text-gray-600">Progress Notes</p></div>
+      )}
+      {tab === "equipment" && (
+        <div className="bg-white rounded-xl p-8 text-center text-gray-400 border"><div className="text-4xl mb-3">🔧</div><p className="font-medium text-gray-600">Equipment Management</p></div>
+      )}
+      {tab === "profile" && <UserProfile />}
+    </DashboardShell>
+  );
+}
