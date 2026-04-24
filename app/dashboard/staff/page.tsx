@@ -58,13 +58,13 @@ const LAB_TESTS = [
 // ── Triage Tab ────────────────────────────────────────────────────────────────
 function TriageTab() {
   const [triages, setTriages] = useState([
-    { id:"T-001", name:"John Doe",     age:39, complaint:"Chest pain, shortness of breath", bp:"145/95", pulse:98,  temp:37.2, spo2:94, priority:"CRITICAL", time:"08:45", status:"Seen" },
-    { id:"T-002", name:"Grace Otieno", age:18, complaint:"Asthma attack, wheezing",         bp:"110/70", pulse:112, temp:37.8, spo2:91, priority:"URGENT",   time:"09:10", status:"Waiting" },
-    { id:"T-003", name:"Peter Mwangi", age:62, complaint:"Post-op wound check",             bp:"130/80", pulse:76,  temp:36.8, spo2:98, priority:"ROUTINE",  time:"09:30", status:"Waiting" },
-    { id:"T-004", name:"Fatuma Abdi",  age:29, complaint:"Labour pains, 38 weeks",          bp:"120/75", pulse:88,  temp:37.0, spo2:99, priority:"URGENT",   time:"09:45", status:"Waiting" },
+    { id:"T-001", name:"John Doe",     age:39, sex:"M", complaint:"Chest pain, shortness of breath", bp:"145/95", pulse:98,  temp:37.2, spo2:94, priority:"CRITICAL", time:"08:45", status:"Seen" },
+    { id:"T-002", name:"Grace Otieno", age:18, sex:"F", complaint:"Asthma attack, wheezing",         bp:"110/70", pulse:112, temp:37.8, spo2:91, priority:"URGENT",   time:"09:10", status:"Waiting" },
+    { id:"T-003", name:"Peter Mwangi", age:62, sex:"M", complaint:"Post-op wound check",             bp:"130/80", pulse:76,  temp:36.8, spo2:98, priority:"ROUTINE",  time:"09:30", status:"Waiting" },
+    { id:"T-004", name:"Fatuma Abdi",  age:29, sex:"F", complaint:"Labour pains, 38 weeks",          bp:"120/75", pulse:88,  temp:37.0, spo2:99, priority:"URGENT",   time:"09:45", status:"Waiting" },
   ]);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name:"", age:"", complaint:"", bp:"", pulse:"", temp:"", spo2:"", priority:"ROUTINE" });
+  const [form, setForm] = useState({ name:"", age:"", sex:"M", complaint:"", bp:"", pulse:"", temp:"", spo2:"", priority:"ROUTINE" });
   const [toast, setToast] = useState("");
 
   const PRIORITY_COLORS: Record<string,string> = { CRITICAL:"bg-red-100 text-red-700 border-red-200", URGENT:"bg-orange-100 text-orange-700 border-orange-200", ROUTINE:"bg-green-100 text-green-700 border-green-200" };
