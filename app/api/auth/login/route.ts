@@ -11,7 +11,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 });
     }
 
-    const user = await prisma.user.findUnique({ where: { email } });
+    // Include medicalStaff so we can return staffType for dashboard routing
+    const user = await prisma.user.findUnique({
+      where: { email },
+      include: { medicalStaff: { select: { staffType: true, department: true, specialty: true } } },
+    });
     if (!user) {
       return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
     }
@@ -21,15 +25,27 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
     }
 
+    const staffType = user.medicalStaff?.staffType ?? null;
+
     const token = jwt.sign(
-      { id: user.id, email: user.email, name: user.name, role: user.role },
+      { id: user.id, email: user.email, name: user.name, role: user.role, staffType },
       process.env.JWT_SECRET || "secret",
       { expiresIn: "8h" }
     );
 
+    const userData = {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      staffType,
+      department: user.medicalStaff?.department ?? null,
+      specialty:  user.medicalStaff?.specialty  ?? null,
+    };
+
     const response = NextResponse.json({
       success: true,
-      user: { id: user.id, name: user.name, email: user.email, role: user.role },
+      user: userData,
       token,
     });
 
