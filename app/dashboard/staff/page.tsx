@@ -73,7 +73,7 @@ function TriageTab() {
     e.preventDefault();
     const id = `T-${String(triages.length+1).padStart(3,"0")}`;
     setTriages(t => [{ id, ...form, age: Number(form.age), pulse: Number(form.pulse), temp: Number(form.temp), spo2: Number(form.spo2), time: new Date().toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"}), status:"Waiting" }, ...t]);
-    setForm({ name:"", age:"", complaint:"", bp:"", pulse:"", temp:"", spo2:"", priority:"ROUTINE" });
+    setForm({ name:"", age:"", sex:"M", complaint:"", bp:"", pulse:"", temp:"", spo2:"", priority:"ROUTINE" });
     setShowForm(false);
     setToast("Patient triaged successfully");
     setTimeout(() => setToast(""), 3000);

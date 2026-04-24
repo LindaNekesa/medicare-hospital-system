@@ -3,7 +3,7 @@
 import { useState } from "react"
 import StaffManagementTable from "./StaffManagementTable"
 import AuditLogsTable from "./AuditLogsTable"
-import SystemSettingsPanel from "./SystemSettingsPanel"
+import SystemSettingsPanel from "./SystemsSettingsPanel"
 import ReportsPanel from "./ReportsPanel"
 import NotificationsPanel from "./NotificationsPanel"
 

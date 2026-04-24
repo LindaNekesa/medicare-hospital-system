@@ -1,108 +1,97 @@
 "use client"
 
-import { useSettings } from "@/hooks/useSettings"
 import { useState, useEffect } from "react"
 
-export default function SystemSettingsPanel(){
-
-const { settingsQuery, updateSettings } = useSettings()
-
-const [form,setForm] = useState<any>({})
-
-useEffect(()=>{
-
-if(settingsQuery.data){
-
-setForm(settingsQuery.data)
-
+type Settings = {
+  hospitalName: string
+  hospitalEmail: string
+  hospitalPhone: string
+  hospitalAddress: string
+  workingHoursStart: string
+  workingHoursEnd: string
+  appointmentLength: number
+  enableNotifications: boolean
 }
 
-},[settingsQuery.data])
+const DEFAULTS: Settings = {
+  hospitalName: "Medicare Hospital",
+  hospitalEmail: "info@medicare.com",
+  hospitalPhone: "+254 700 000 000",
+  hospitalAddress: "Nairobi, Kenya",
+  workingHoursStart: "08:00",
+  workingHoursEnd: "17:00",
+  appointmentLength: 30,
+  enableNotifications: true,
+}
 
-if(settingsQuery.isLoading) return <p>Loading settings...</p>
+export default function SystemSettingsPanel() {
+  const [form, setForm]     = useState<Settings>(DEFAULTS)
+  const [loading, setLoading] = useState(true)
+  const [toast, setToast]   = useState("")
 
-return(
+  useEffect(() => {
+    fetch("/api/settings")
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d) setForm({ ...DEFAULTS, ...d }); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [])
 
-<div className="bg-white p-6 rounded shadow space-y-4">
+  const save = async () => {
+    const res = await fetch("/api/settings", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(form),
+    })
+    setToast(res.ok ? "Settings saved successfully" : "Failed to save settings")
+    setTimeout(() => setToast(""), 3000)
+  }
 
-<h2 className="text-xl font-bold">Hospital System Settings</h2>
+  if (loading) return <p className="text-gray-500 py-4">Loading settings...</p>
 
-<input
-className="border p-2 w-full"
-placeholder="Hospital Name"
-value={form.hospitalName || ""}
-onChange={(e)=>setForm({...form,hospitalName:e.target.value})}
-/>
+  return (
+    <div className="bg-white p-6 rounded-xl border shadow-sm space-y-4 max-w-2xl">
+      {toast && <div className="p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg text-sm">{toast}</div>}
+      <h2 className="text-xl font-bold">Hospital System Settings</h2>
 
-<input
-className="border p-2 w-full"
-placeholder="Hospital Email"
-value={form.hospitalEmail || ""}
-onChange={(e)=>setForm({...form,hospitalEmail:e.target.value})}
-/>
+      {[
+        ["Hospital Name",    "hospitalName",    "text",  "Medicare Hospital"],
+        ["Hospital Email",   "hospitalEmail",   "email", "info@medicare.com"],
+        ["Hospital Phone",   "hospitalPhone",   "text",  "+254 700 000 000"],
+        ["Hospital Address", "hospitalAddress", "text",  "Nairobi, Kenya"],
+      ].map(([label, key, type, placeholder]) => (
+        <div key={key as string}>
+          <label className="block text-sm font-medium text-gray-700 mb-1">{label as string}</label>
+          <input type={type as string} className="border rounded-lg px-3 py-2 w-full text-sm" placeholder={placeholder as string}
+            value={(form as Record<string, unknown>)[key as string] as string}
+            onChange={e => setForm({ ...form, [key as string]: e.target.value })} />
+        </div>
+      ))}
 
-<input
-className="border p-2 w-full"
-placeholder="Hospital Phone"
-value={form.hospitalPhone || ""}
-onChange={(e)=>setForm({...form,hospitalPhone:e.target.value})}
-/>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Working Hours Start</label>
+          <input type="time" className="border rounded-lg px-3 py-2 w-full text-sm" value={form.workingHoursStart} onChange={e => setForm({ ...form, workingHoursStart: e.target.value })} />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Working Hours End</label>
+          <input type="time" className="border rounded-lg px-3 py-2 w-full text-sm" value={form.workingHoursEnd} onChange={e => setForm({ ...form, workingHoursEnd: e.target.value })} />
+        </div>
+      </div>
 
-<input
-className="border p-2 w-full"
-placeholder="Hospital Address"
-value={form.hospitalAddress || ""}
-onChange={(e)=>setForm({...form,hospitalAddress:e.target.value})}
-/>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Appointment Length (minutes)</label>
+        <input type="number" min={5} max={120} className="border rounded-lg px-3 py-2 w-full text-sm" value={form.appointmentLength}
+          onChange={e => setForm({ ...form, appointmentLength: Number(e.target.value) })} />
+      </div>
 
-<div className="flex gap-4">
+      <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+        <input type="checkbox" checked={form.enableNotifications} onChange={e => setForm({ ...form, enableNotifications: e.target.checked })} className="rounded" />
+        Enable email notifications
+      </label>
 
-<input
-className="border p-2"
-type="time"
-value={form.workingHoursStart || ""}
-onChange={(e)=>setForm({...form,workingHoursStart:e.target.value})}
-/>
-
-<input
-className="border p-2"
-type="time"
-value={form.workingHoursEnd || ""}
-onChange={(e)=>setForm({...form,workingHoursEnd:e.target.value})}
-/>
-
-</div>
-
-<input
-className="border p-2 w-full"
-type="number"
-placeholder="Appointment Length (minutes)"
-value={form.appointmentLength || ""}
-onChange={(e)=>setForm({...form,appointmentLength:Number(e.target.value)})}
-/>
-
-<label className="flex gap-2 items-center">
-
-<input
-type="checkbox"
-checked={form.enableNotifications || false}
-onChange={(e)=>setForm({...form,enableNotifications:e.target.checked})}
-/>
-
-Enable Notifications
-
-</label>
-
-<button
-onClick={()=>updateSettings.mutate(form)}
-className="bg-blue-600 text-white px-4 py-2 rounded">
-
-Save Settings
-
-</button>
-
-</div>
-
-)
-
+      <button onClick={save} className="bg-blue-600 text-white px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-blue-700">
+        Save Settings
+      </button>
+    </div>
+  )
 }
