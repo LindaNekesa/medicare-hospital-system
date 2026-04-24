@@ -3,30 +3,41 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  // directUrl is used for migrations (bypasses pgBouncer)
+  directUrl = env("DIRECT_URL")
 }
 
 // ── Users & Auth ─────────────────────────────────────────────────────────────
 
 model User {
-  id           Int      @id @default(autoincrement())
+  id           Int       @id @default(autoincrement())
   name         String
-  email        String   @unique
+  email        String    @unique
   password     String
-  role         String   @default("PATIENT")
+  role         String    @default("PATIENT")
   phone        String?
   resetToken   String?
   resetExpiry  DateTime?
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
-  patient          Patient?
-  medicalStaff     MedicalStaff?
-  caregiver        Caregiver?
-  insuranceRep     InsuranceRep?
-  govRep           GovernmentRep?
+  failedAttempts Int      @default(0)
+  lockedUntil    DateTime?
+
+  patient           Patient?
+  medicalStaff      MedicalStaff?
+  caregiver         Caregiver?
+  insuranceRep      InsuranceRep?
+  govRep            GovernmentRep?
   clinicalSummaries ClinicalSummary[]
+  availability      DoctorAvailability[]
+
+  // Indexes for fast auth lookups
+  @@index([email])
+  @@index([role])
+  @@index([resetToken])
 }
 
 // ── Patient ───────────────────────────────────────────────────────────────────
@@ -50,6 +61,12 @@ model Patient {
   appointments   Appointment[]
   medicalRecords MedicalRecord[]
   bills          Bill[]
+
+  // Indexes for search and date-range queries (critical for 2000+/day)
+  @@index([firstName, lastName])
+  @@index([phone])
+  @@index([createdAt])
+  @@index([insurance])
 }
 
 // ── Medical Staff ─────────────────────────────────────────────────────────────
@@ -66,6 +83,9 @@ model MedicalStaff {
   updatedAt  DateTime @updatedAt
 
   appointments Appointment[]
+
+  @@index([staffType])
+  @@index([department])
 }
 
 // ── Caregiver ─────────────────────────────────────────────────────────────────
@@ -103,18 +123,27 @@ model GovernmentRep {
 // ── Appointments ──────────────────────────────────────────────────────────────
 
 model Appointment {
-  id        Int      @id @default(autoincrement())
+  id        Int           @id @default(autoincrement())
   patientId Int
-  patient   Patient  @relation(fields: [patientId], references: [id])
+  patient   Patient       @relation(fields: [patientId], references: [id])
   staffId   Int?
   staff     MedicalStaff? @relation(fields: [staffId], references: [id])
   date      DateTime
   time      String
   reason    String?
-  status    String   @default("PENDING")
+  status    String        @default("PENDING")
   notes     String?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+
+  // Critical indexes — appointments are the highest-volume table
+  @@index([patientId])
+  @@index([staffId])
+  @@index([date])
+  @@index([status])
+  @@index([date, status])          // composite: today's pending appointments
+  @@index([patientId, date])       // composite: patient appointment history
+  @@index([staffId, date])         // composite: doctor's daily schedule
 }
 
 // ── Medical Records ───────────────────────────────────────────────────────────
@@ -132,6 +161,10 @@ model MedicalRecord {
   updatedAt    DateTime @updatedAt
 
   clinicalSummary ClinicalSummary?
+
+  @@index([patientId])
+  @@index([visitDate])
+  @@index([patientId, visitDate])
 }
 
 // ── Clinical Summary ──────────────────────────────────────────────────────────
@@ -151,36 +184,49 @@ model ClinicalSummary {
   doctorSignature  String?
   createdAt        DateTime      @default(now())
   updatedAt        DateTime      @updatedAt
-  record           MedicalRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
-  author           User          @relation(fields: [authorId], references: [id])
+
+  record MedicalRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  author User          @relation(fields: [authorId], references: [id])
+
+  @@index([authorId])
+  @@index([recordId])
 }
 
 // ── Billing ───────────────────────────────────────────────────────────────────
 
 model Bill {
-  id            Int      @id @default(autoincrement())
+  id            Int       @id @default(autoincrement())
   patientId     Int
-  patient       Patient  @relation(fields: [patientId], references: [id])
+  patient       Patient   @relation(fields: [patientId], references: [id])
   amount        Float
   description   String?
-  status        String   @default("UNPAID")
+  status        String    @default("UNPAID")
   paymentMethod String?
   paidAt        DateTime?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  @@index([patientId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([patientId, status])
 }
 
 // ── Tasks ─────────────────────────────────────────────────────────────────────
 
 model Task {
-  id          Int      @id @default(autoincrement())
+  id          Int       @id @default(autoincrement())
   title       String
   description String?
   assignedTo  Int?
-  status      String   @default("PENDING")
+  status      String    @default("PENDING")
   dueDate     DateTime?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([assignedTo])
+  @@index([status])
+  @@index([dueDate])
 }
 
 // ── Audit Log ─────────────────────────────────────────────────────────────────
@@ -192,6 +238,11 @@ model AuditLog {
   entity    String
   entityId  Int?
   timestamp DateTime @default(now())
+
+  // Audit logs are append-only and queried by user or time range
+  @@index([userId])
+  @@index([timestamp])
+  @@index([entity, entityId])
 }
 
 // ── Hospital Settings ─────────────────────────────────────────────────────────
@@ -211,4 +262,20 @@ model Department {
   name      String   @unique
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+// ── Doctor Availability ───────────────────────────────────────────────────────
+
+model DoctorAvailability {
+  id        Int    @id @default(autoincrement())
+  doctorId  Int                          // matches User.id (Int)
+  dayOfWeek Int                          // 0 = Sunday, 6 = Saturday
+  startTime String                       // "09:00"
+  endTime   String                       // "17:00"
+
+  doctor User @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId])
+  @@index([dayOfWeek])
+  @@unique([doctorId, dayOfWeek])        // one slot per doctor per day
 }
