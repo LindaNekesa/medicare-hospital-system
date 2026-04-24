@@ -3,7 +3,7 @@
 import NextAuth, { AuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
 import { PrismaAdapter } from "@next-auth/prisma-adapter"
-import { prisma } from "@/prisma/client"
+import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 
 // Extend NextAuth types for role
@@ -60,7 +60,7 @@ export const authOptions: AuthOptions = {
     },
     async session({ session, token }) {
       if (session.user) {
-        session.user.role = token.role!
+        session.user.role = token.role as "ADMIN" | "DOCTOR" | "NURSE" | "RECEPTIONIST" | "LAB_TECHNICIAN"
         session.user.id = token.sub!
       }
       return session
