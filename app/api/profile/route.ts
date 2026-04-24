@@ -1,78 +1,75 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { verifyToken } from "@/lib/auth";
+import { canManageUsers } from "@/lib/rbac";
 
-function getUser(req: NextRequest) {
-  const token = req.cookies.get("auth_token")?.value
-    || req.headers.get("authorization")?.replace("Bearer ", "");
-  if (!token) return null;
-  return verifyToken(token);
-}
-
-// GET — fetch own profile
 export async function GET(req: NextRequest) {
-  const payload = getUser(req);
-  if (!payload) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const session = await auth(req);
+
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const { searchParams } = req.nextUrl;
+  const userIdParam = searchParams.get("userId");
+
+  // Default to the logged-in user's id
+  let targetId: number = session.user.id;
+
+  if (userIdParam) {
+    if (!canManageUsers(session.user.role)) {
+      // Non-admin trying to view someone else's profile
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    targetId = parseInt(userIdParam, 10);
+    if (isNaN(targetId)) {
+      return NextResponse.json({ error: "Invalid userId" }, { status: 400 });
+    }
+  }
 
   const user = await prisma.user.findUnique({
-    where: { id: payload.id },
-    select: { id: true, name: true, email: true, role: true, phone: true, createdAt: true,
-      medicalStaff: { select: { staffType: true, specialty: true, department: true, licenseNo: true } },
-      patient: { select: { firstName: true, lastName: true, gender: true, dateOfBirth: true, bloodType: true, address: true, phone: true, insurance: true, emergencyContact: true } },
+    where: { id: targetId },
+    select: {
+      id:        true,
+      name:      true,
+      email:     true,
+      role:      true,
+      phone:     true,
+      createdAt: true,
+      medicalStaff: {
+        select: { staffType: true, specialty: true, department: true },
+      },
+      patient: {
+        select: { firstName: true, lastName: true, gender: true, bloodType: true, phone: true },
+      },
     },
   });
 
-  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
-  return NextResponse.json({ user });
+  if (!user) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  return NextResponse.json(user);
 }
 
-// PATCH — update profile
 export async function PATCH(req: NextRequest) {
-  const payload = getUser(req);
-  if (!payload) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const session = await auth(req);
+
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
 
   const body = await req.json();
-  const { name, phone, bio, staffType, specialty, department, licenseNo,
-    firstName, lastName, gender, dateOfBirth, bloodType, address, insurance, emergencyContact } = body;
+  const { name, phone } = body;
 
-  const user = await prisma.user.update({
-    where: { id: payload.id },
-    data: { name: name || undefined, phone: phone || undefined },
-    select: { id: true, name: true, email: true, role: true, phone: true },
+  const updated = await prisma.user.update({
+    where: { id: session.user.id },
+    data: {
+      ...(name  !== undefined && { name:  name.trim() }),
+      ...(phone !== undefined && { phone: phone || null }),
+    },
+    select: { id: true, name: true, email: true, phone: true, updatedAt: true },
   });
 
-  // Update role-specific profile
-  if (user.role === "MEDICAL_STAFF") {
-    await prisma.medicalStaff.upsert({
-      where: { userId: payload.id },
-      update: { staffType: staffType || undefined, specialty: specialty || undefined, department: department || undefined, licenseNo: licenseNo || undefined },
-      create: { userId: payload.id, staffType: staffType || "DOCTOR", specialty, department, licenseNo },
-    });
-  }
-
-  if (user.role === "PATIENT" && firstName) {
-    await prisma.patient.upsert({
-      where: { userId: payload.id },
-      update: { firstName, lastName, gender, dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : undefined, bloodType, address, phone, insurance, emergencyContact },
-      create: { userId: payload.id, firstName, lastName: lastName || "", gender: gender || "OTHER", dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : new Date(), bloodType, address, phone, insurance, emergencyContact },
-    });
-  }
-
-  return NextResponse.json({ success: true, user });
-}
-
-// DELETE — delete own account
-export async function DELETE(req: NextRequest) {
-  const payload = getUser(req);
-  if (!payload) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  // Prevent deleting the main admin
-  if (payload.email === "erimalinda26@gmail.com") {
-    return NextResponse.json({ error: "This account cannot be deleted." }, { status: 403 });
-  }
-
-  await prisma.user.delete({ where: { id: payload.id } });
-  const res = NextResponse.json({ success: true });
-  res.cookies.delete("auth_token");
-  return res;
+  return NextResponse.json(updated);
 }

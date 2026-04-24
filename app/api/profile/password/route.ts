@@ -1,33 +1,68 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { verifyToken } from "@/lib/auth";
 import bcrypt from "bcryptjs";
-import { validatePassword } from "@/app/api/auth/register/route";
+import { isAdmin } from "@/lib/rbac";
 
 export async function POST(req: NextRequest) {
-  const token = req.cookies.get("auth_token")?.value
-    || req.headers.get("authorization")?.replace("Bearer ", "");
-  if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const session = await auth(req);
 
-  const payload = verifyToken(token);
-  if (!payload) return NextResponse.json({ error: "Invalid token" }, { status: 401 });
-
-  const { currentPassword, newPassword } = await req.json();
-  if (!currentPassword || !newPassword) {
-    return NextResponse.json({ error: "Both current and new password are required." }, { status: 400 });
+  if (!session?.user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const pwError = validatePassword(newPassword);
-  if (pwError) return NextResponse.json({ error: pwError }, { status: 400 });
+  const body = await req.json();
+  const { currentPassword, newPassword, userId } = body;
 
-  const user = await prisma.user.findUnique({ where: { id: payload.id } });
-  if (!user) return NextResponse.json({ error: "User not found" }, { status: 404 });
+  if (!newPassword || newPassword.length < 8) {
+    return NextResponse.json(
+      { error: "New password must be at least 8 characters" },
+      { status: 400 }
+    );
+  }
 
-  const valid = await bcrypt.compare(currentPassword, user.password);
-  if (!valid) return NextResponse.json({ error: "Current password is incorrect." }, { status: 400 });
+  // Determine target user
+  let targetId: number = session.user.id;
+
+  if (userId !== undefined) {
+    if (!isAdmin(session.user.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+    targetId = parseInt(userId, 10);
+    if (isNaN(targetId)) {
+      return NextResponse.json({ error: "Invalid userId" }, { status: 400 });
+    }
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: targetId },
+    select: { id: true, password: true },
+  });
+
+  if (!user) {
+    return NextResponse.json({ error: "User not found" }, { status: 404 });
+  }
+
+  // Non-admin must verify their current password
+  if (!isAdmin(session.user.role)) {
+    if (!currentPassword) {
+      return NextResponse.json(
+        { error: "Current password is required" },
+        { status: 400 }
+      );
+    }
+    const valid = await bcrypt.compare(currentPassword, user.password);
+    if (!valid) {
+      return NextResponse.json({ error: "Incorrect current password" }, { status: 400 });
+    }
+  }
 
   const hashed = await bcrypt.hash(newPassword, 10);
-  await prisma.user.update({ where: { id: payload.id }, data: { password: hashed } });
 
-  return NextResponse.json({ success: true, message: "Password updated successfully." });
+  await prisma.user.update({
+    where: { id: targetId },
+    data:  { password: hashed },
+  });
+
+  return NextResponse.json({ success: true });
 }
