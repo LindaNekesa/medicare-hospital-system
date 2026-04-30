@@ -17,19 +17,32 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
     try {
-      const res  = await fetch("/api/auth/login", {
+      const res = await fetch("/api/auth/login", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
         body:    JSON.stringify({ email: email.trim(), password }),
       });
+
+      // Handle non-JSON responses (e.g. server error HTML pages)
+      const contentType = res.headers.get("content-type") ?? "";
+      if (!contentType.includes("application/json")) {
+        setError("Server error. Please try again in a moment.");
+        return;
+      }
+
       const data = await res.json();
-      if (!res.ok) { setError(data.error || "Login failed."); return; }
+      if (!res.ok) {
+        setError(data.error || "Invalid email or password.");
+        return;
+      }
+
       localStorage.setItem("auth_token", data.token);
       localStorage.setItem("user", JSON.stringify(data.user));
       router.push("/dashboard");
       router.refresh();
-    } catch {
-      setError("Something went wrong. Please try again.");
+    } catch (err) {
+      console.error("Login fetch error:", err);
+      setError("Cannot reach the server. Check your connection and try again.");
     } finally {
       setLoading(false);
     }
