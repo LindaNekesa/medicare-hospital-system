@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import DashboardShell from "@/components/layout/DashboardShell";
 import UserProfile from "@/components/profile/UserProfile";
+import { getTriageQueue, addTriagePatient, updateTriagePatient, TriagePatient } from "@/lib/triageStore";
 
 const NAV = [
   { id: "overview",    label: "Overview",          icon: "📊" },
@@ -35,12 +36,28 @@ const MEDICATIONS = [
 export default function NurseDashboard() {
   const [tab, setTab] = useState("overview");
   const [staffType, setStaffType] = useState("NURSE");
+  const [staffName, setStaffName] = useState("Nurse");
   const [meds, setMeds] = useState(MEDICATIONS);
+  const [triageQueue, setTriageQueue] = useState<TriagePatient[]>([]);
+  const [showTriageForm, setShowTriageForm] = useState(false);
+  const [triageForm, setTriageForm] = useState({ name:"", age:"", sex:"M", complaint:"", bp:"", pulse:"", temp:"", spo2:"", priority:"ROUTINE" as TriagePatient["priority"] });
   const [vitals, setVitals] = useState(PATIENTS);
   const [toast, setToast] = useState("");
 
   useEffect(() => {
-    try { const u = JSON.parse(localStorage.getItem("user") || "{}"); setStaffType(u.staffType || "NURSE"); } catch { /* ignore */ }
+    try {
+      const u = JSON.parse(localStorage.getItem("user") || "{}");
+      setStaffType(u.staffType || "NURSE");
+      setStaffName(u.name || "Nurse");
+    } catch { /* ignore */ }
+  }, []);
+
+  // Poll triage queue every 3 seconds
+  useEffect(() => {
+    const load = () => setTriageQueue(getTriageQueue());
+    load();
+    const interval = setInterval(load, 3000);
+    return () => clearInterval(interval);
   }, []);
 
   const roleLabel = staffType === "MIDWIFE" ? "Midwife" : staffType === "SENIOR_NURSE" ? "Senior Nurse" : staffType === "NURSE_ANESTHETIST" ? "Nurse Anaesthetist" : "Registered Nurse";
@@ -108,29 +125,110 @@ export default function NurseDashboard() {
 
       {tab === "triage" && (
         <div className="space-y-4">
-          <h2 className="text-lg font-bold text-gray-900">Triage & Vital Signs</h2>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-bold text-gray-900">Triage & Vital Signs</h2>
+            <button onClick={() => setShowTriageForm(true)} className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700">+ Triage Patient</button>
+          </div>
+
+          {showTriageForm && (
+            <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowTriageForm(false)}>
+              <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+                <div className="flex items-center justify-between p-5 border-b">
+                  <h3 className="text-lg font-bold text-gray-900">New Triage Assessment</h3>
+                  <button onClick={() => setShowTriageForm(false)} className="text-gray-400 hover:text-gray-600 text-2xl">✕</button>
+                </div>
+                <form className="p-5 space-y-4" onSubmit={e => {
+                  e.preventDefault();
+                  addTriagePatient({
+                    name: triageForm.name, age: Number(triageForm.age), sex: triageForm.sex,
+                    complaint: triageForm.complaint, bp: triageForm.bp,
+                    pulse: Number(triageForm.pulse), temp: Number(triageForm.temp), spo2: Number(triageForm.spo2),
+                    priority: triageForm.priority,
+                    time: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+                    status: "Waiting",
+                    triageBy: staffName,
+                  });
+                  setTriageQueue(getTriageQueue());
+                  setTriageForm({ name:"", age:"", sex:"M", complaint:"", bp:"", pulse:"", temp:"", spo2:"", priority:"ROUTINE" });
+                  setShowTriageForm(false);
+                  setToast("Patient triaged — doctor notified");
+                  setTimeout(() => setToast(""), 3000);
+                }}>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div><label className="block text-sm font-medium text-gray-700 mb-1">Patient Name</label><input required className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" value={triageForm.name} onChange={e=>setTriageForm(f=>({...f,name:e.target.value}))} /></div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Age</label><input required type="number" className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" value={triageForm.age} onChange={e=>setTriageForm(f=>({...f,age:e.target.value}))} /></div>
+                      <div><label className="block text-sm font-medium text-gray-700 mb-1">Sex</label>
+                        <select className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" value={triageForm.sex} onChange={e=>setTriageForm(f=>({...f,sex:e.target.value}))}>
+                          <option value="M">Male</option><option value="F">Female</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                  <div><label className="block text-sm font-medium text-gray-700 mb-1">Chief Complaint</label><textarea required className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" rows={2} value={triageForm.complaint} onChange={e=>setTriageForm(f=>({...f,complaint:e.target.value}))} /></div>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[["BP","bp","120/80"],["Pulse","pulse","72"],["Temp","temp","37.0"],["SpO₂","spo2","98"]].map(([l,k,ph])=>(
+                      <div key={k}><label className="block text-sm font-medium text-gray-700 mb-1">{l}</label><input className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder={ph} value={(triageForm as Record<string,string>)[k]} onChange={e=>setTriageForm(f=>({...f,[k]:e.target.value}))} /></div>
+                    ))}
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">Priority</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {(["ROUTINE","URGENT","CRITICAL"] as TriagePatient["priority"][]).map(p=>(
+                        <button key={p} type="button" onClick={()=>setTriageForm(f=>({...f,priority:p}))}
+                          className={`py-2 rounded-lg text-sm font-medium border ${triageForm.priority===p?(p==="CRITICAL"?"bg-red-600 text-white border-red-600":p==="URGENT"?"bg-orange-500 text-white border-orange-500":"bg-green-600 text-white border-green-600"):"bg-white text-gray-600 border-gray-300"}`}>
+                          {p}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex gap-3 pt-2 border-t">
+                    <button type="button" onClick={()=>setShowTriageForm(false)} className="flex-1 border border-gray-300 py-2 rounded-lg text-sm">Cancel</button>
+                    <button type="submit" className="flex-1 bg-red-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-red-700">Submit Triage → Doctor</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          <div className="grid grid-cols-3 gap-3">
+            {[["CRITICAL",triageQueue.filter(t=>t.priority==="CRITICAL").length,"bg-red-50 border-red-100 text-red-700"],
+              ["URGENT",triageQueue.filter(t=>t.priority==="URGENT").length,"bg-orange-50 border-orange-100 text-orange-700"],
+              ["ROUTINE",triageQueue.filter(t=>t.priority==="ROUTINE").length,"bg-green-50 border-green-100 text-green-700"]].map(([p,c,cls])=>(
+              <div key={p as string} className={`rounded-xl border p-3 text-center ${cls}`}><p className="text-2xl font-bold">{c as number}</p><p className="text-xs font-medium mt-0.5">{p as string}</p></div>
+            ))}
+          </div>
+
           <div className="space-y-3">
-            {vitals.map((p, i) => (
-              <div key={p.id} className={`bg-white rounded-xl border-l-4 shadow-sm p-4 ${p.status === "Critical" ? "border-red-500" : p.status === "Monitoring" ? "border-yellow-500" : "border-green-500"}`}>
+            {triageQueue.length === 0 ? (
+              <div className="bg-white rounded-xl p-8 text-center border text-gray-400">Queue is empty</div>
+            ) : triageQueue.map(t => (
+              <div key={t.id} className={`bg-white rounded-xl border-l-4 shadow-sm p-4 ${t.priority==="CRITICAL"?"border-red-500":t.priority==="URGENT"?"border-orange-500":"border-green-500"}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
-                      <Badge label={p.status} color={STATUS_COLORS[p.status]} />
-                      <span className="text-xs text-gray-400">Ward: {p.ward} · Bed: {p.bed}</span>
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <Badge label={t.priority} color={t.priority==="CRITICAL"?"bg-red-100 text-red-700":t.priority==="URGENT"?"bg-orange-100 text-orange-700":"bg-green-100 text-green-700"} />
+                      <span className="text-xs text-gray-400 font-mono">{t.id}</span>
+                      <span className="text-xs text-gray-400">· {t.time}</span>
                     </div>
-                    <p className="font-semibold text-gray-900">{p.name}</p>
-                    <p className="text-sm text-gray-500">{p.condition} · {p.doctor}</p>
+                    <p className="font-semibold text-gray-900">{t.name} <span className="text-gray-400 font-normal text-sm">({t.age}y, {t.sex})</span></p>
+                    <p className="text-sm text-gray-600 mt-0.5">{t.complaint}</p>
                     <div className="grid grid-cols-4 gap-2 mt-2">
-                      {[["BP", p.bp, "mmHg"], ["Pulse", String(p.pulse), "bpm"], ["Temp", String(p.temp), "°C"], ["SpO₂", String(p.spo2), "%"]].map(([k, v, u]) => (
+                      {[["BP",t.bp,"mmHg"],["Pulse",String(t.pulse),"bpm"],["Temp",String(t.temp),"°C"],["SpO₂",String(t.spo2),"%"]].map(([k,v,u])=>(
                         <div key={k} className="bg-gray-50 rounded-lg p-2 text-center">
                           <p className="text-xs text-gray-400">{k}</p>
-                          <p className={`text-sm font-bold ${k === "SpO₂" && Number(v) < 95 ? "text-red-600" : "text-gray-800"}`}>{v}<span className="text-xs font-normal text-gray-400 ml-0.5">{u}</span></p>
+                          <p className={`text-sm font-bold ${k==="SpO₂"&&Number(v)<95?"text-red-600":"text-gray-800"}`}>{v}<span className="text-xs font-normal text-gray-400 ml-0.5">{u}</span></p>
                         </div>
                       ))}
                     </div>
                   </div>
-                  <button onClick={() => { const updated = [...vitals]; updated[i] = { ...updated[i], pulse: updated[i].pulse + Math.floor(Math.random() * 3 - 1) }; setVitals(updated); setToast("Vitals updated"); setTimeout(() => setToast(""), 2000); }}
-                    className="text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 shrink-0">Update Vitals</button>
+                  <div className="flex flex-col items-end gap-2 shrink-0">
+                    <Badge label={t.status} color={t.status==="Seen"?"bg-green-100 text-green-700":t.status==="Called"?"bg-blue-100 text-blue-700":"bg-yellow-100 text-yellow-700"} />
+                    {t.status === "Waiting" && (
+                      <button onClick={() => { updateTriagePatient(t.id, { status: "Called" }); setTriageQueue(getTriageQueue()); setToast("Patient called"); setTimeout(()=>setToast(""),2000); }}
+                        className="text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700">Update Vitals</button>
+                    )}
+                  </div>
                 </div>
               </div>
             ))}

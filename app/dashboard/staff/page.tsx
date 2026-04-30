@@ -3,15 +3,19 @@ import { useState, useEffect, ReactNode, useRef } from "react";
 import DashboardShell from "@/components/layout/DashboardShell";
 import StatCard from "@/components/ui/StatCard";
 import { addLabRequest, getLabRequests, LabRequest } from "@/lib/labStore";
+import { getTriageQueue, addTriagePatient, updateTriagePatient, TriagePatient } from "@/lib/triageStore";
+import { addReferral, getReferrals, updateReferral, Referral, Department, DEPARTMENT_LABELS, DEPARTMENT_ICONS } from "@/lib/referralStore";
 import UserProfile from "@/components/profile/UserProfile";
 
 const NAV = [
-  { id: "overview",  label: "Overview",      icon: "📊" },
-  { id: "triage",    label: "Triage",        icon: "🚨" },
-  { id: "patients",  label: "My Patients",   icon: "🏥" },
-  { id: "lab",       label: "Lab Requests",  icon: "🔬" },
-  { id: "schedule",  label: "Schedule",      icon: "📅" },
-  { id: "profile",   label: "My Profile",    icon: "👤" },
+  { id: "overview",   label: "Overview",       icon: "📊" },
+  { id: "triage",     label: "Triage",         icon: "🚨" },
+  { id: "patients",   label: "My Patients",    icon: "🏥" },
+  { id: "clinical",   label: "Clinical Notes", icon: "📋" },
+  { id: "lab",        label: "Lab Requests",   icon: "🔬" },
+  { id: "referrals",  label: "Referrals",      icon: "🔗" },
+  { id: "schedule",   label: "Schedule",       icon: "📅" },
+  { id: "profile",    label: "My Profile",     icon: "👤" },
 ];
 
 // ── Shared UI ─────────────────────────────────────────────────────────────────
@@ -55,31 +59,70 @@ const LAB_TESTS = [
   "Sputum AFB (TB)", "Widal Test", "CRP", "ESR", "Coagulation Profile",
 ];
 
-// ── Triage Tab ────────────────────────────────────────────────────────────────
-function TriageTab() {
-  const [triages, setTriages] = useState([
-    { id:"T-001", name:"John Doe",     age:39, sex:"M", complaint:"Chest pain, shortness of breath", bp:"145/95", pulse:98,  temp:37.2, spo2:94, priority:"CRITICAL", time:"08:45", status:"Seen" },
-    { id:"T-002", name:"Grace Otieno", age:18, sex:"F", complaint:"Asthma attack, wheezing",         bp:"110/70", pulse:112, temp:37.8, spo2:91, priority:"URGENT",   time:"09:10", status:"Waiting" },
-    { id:"T-003", name:"Peter Mwangi", age:62, sex:"M", complaint:"Post-op wound check",             bp:"130/80", pulse:76,  temp:36.8, spo2:98, priority:"ROUTINE",  time:"09:30", status:"Waiting" },
-    { id:"T-004", name:"Fatuma Abdi",  age:29, sex:"F", complaint:"Labour pains, 38 weeks",          bp:"120/75", pulse:88,  temp:37.0, spo2:99, priority:"URGENT",   time:"09:45", status:"Waiting" },
-  ]);
+// ── Triage Tab — uses shared triageStore, auto-polls every 3s ────────────────
+function TriageTab({ canAdd }: { canAdd: boolean }) {
+  const [triages, setTriages] = useState<TriagePatient[]>([]);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name:"", age:"", sex:"M", complaint:"", bp:"", pulse:"", temp:"", spo2:"", priority:"ROUTINE" });
+  const [form, setForm] = useState({ name:"", age:"", sex:"M", complaint:"", bp:"", pulse:"", temp:"", spo2:"", priority:"ROUTINE" as TriagePatient["priority"] });
   const [toast, setToast] = useState("");
+  const [staffName, setStaffName] = useState("Nurse");
 
-  const PRIORITY_COLORS: Record<string,string> = { CRITICAL:"bg-red-100 text-red-700 border-red-200", URGENT:"bg-orange-100 text-orange-700 border-orange-200", ROUTINE:"bg-green-100 text-green-700 border-green-200" };
+  useEffect(() => {
+    try { const u = JSON.parse(localStorage.getItem("user") || "{}"); setStaffName(u.name || "Nurse"); } catch { /* ignore */ }
+  }, []);
+
+  // Poll every 3 seconds — doctor sees nurse-added patients automatically
+  useEffect(() => {
+    const load = () => {
+      const q = getTriageQueue();
+      setTriages([...q].sort((a, b) => {
+        const o = { CRITICAL: 0, URGENT: 1, ROUTINE: 2 };
+        return (o[a.priority] ?? 2) - (o[b.priority] ?? 2);
+      }));
+    };
+    load();
+    const interval = setInterval(load, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const PRIORITY_COLORS: Record<string, string> = {
+    CRITICAL: "bg-red-100 text-red-700 border-red-200",
+    URGENT:   "bg-orange-100 text-orange-700 border-orange-200",
+    ROUTINE:  "bg-green-100 text-green-700 border-green-200",
+  };
 
   const addTriage = (e: React.FormEvent) => {
     e.preventDefault();
-    const id = `T-${String(triages.length+1).padStart(3,"0")}`;
-    setTriages(t => [{ id, ...form, age: Number(form.age), pulse: Number(form.pulse), temp: Number(form.temp), spo2: Number(form.spo2), time: new Date().toLocaleTimeString("en-US",{hour:"2-digit",minute:"2-digit"}), status:"Waiting" }, ...t]);
+    addTriagePatient({
+      name: form.name, age: Number(form.age), sex: form.sex,
+      complaint: form.complaint, bp: form.bp,
+      pulse: Number(form.pulse), temp: Number(form.temp), spo2: Number(form.spo2),
+      priority: form.priority,
+      time: new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" }),
+      status: "Waiting",
+      triageBy: staffName,
+    });
+    setTriages(getTriageQueue());
     setForm({ name:"", age:"", sex:"M", complaint:"", bp:"", pulse:"", temp:"", spo2:"", priority:"ROUTINE" });
     setShowForm(false);
     setToast("Patient triaged successfully");
     setTimeout(() => setToast(""), 3000);
   };
 
-  const sorted = [...triages].sort((a,b) => { const o = {CRITICAL:0,URGENT:1,ROUTINE:2}; return (o[a.priority as keyof typeof o]||2) - (o[b.priority as keyof typeof o]||2); });
+  const markSeen = (id: string) => {
+    updateTriagePatient(id, { status: "Seen" });
+    setTriages(getTriageQueue());
+  };
+
+  const callPatient = (id: string) => {
+    updateTriagePatient(id, { status: "Called" });
+    setTriages(getTriageQueue());
+  };
+
+  const sorted = [...triages].sort((a, b) => {
+    const o = { CRITICAL: 0, URGENT: 1, ROUTINE: 2 };
+    return (o[a.priority] ?? 2) - (o[b.priority] ?? 2);
+  });
 
   return (
     <div className="space-y-4">
@@ -87,17 +130,27 @@ function TriageTab() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold text-gray-900">Triage Queue</h2>
-          <p className="text-sm text-gray-500 mt-0.5">Patients sorted by priority — Critical first</p>
+          <p className="text-sm text-gray-500 mt-0.5">Auto-updates every 3 seconds · Sorted by priority</p>
         </div>
-        <button onClick={() => setShowForm(true)} className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700">+ Triage Patient</button>
+        {canAdd && (
+          <button onClick={() => setShowForm(true)} className="bg-red-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-red-700">+ Triage Patient</button>
+        )}
       </div>
 
-      {showForm && (
+      {showForm && canAdd && (
         <Modal title="New Triage Assessment" onClose={() => setShowForm(false)}>
           <form onSubmit={addTriage} className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <Field label="Patient Name"><input required className={inputCls} value={form.name} onChange={e=>setForm(f=>({...f,name:e.target.value}))} placeholder="Full name" /></Field>
-              <Field label="Age"><input required type="number" className={inputCls} value={form.age} onChange={e=>setForm(f=>({...f,age:e.target.value}))} placeholder="35" /></Field>
+              <div className="grid grid-cols-2 gap-2">
+                <Field label="Age"><input required type="number" className={inputCls} value={form.age} onChange={e=>setForm(f=>({...f,age:e.target.value}))} placeholder="35" /></Field>
+                <Field label="Sex">
+                  <select className={inputCls} value={form.sex} onChange={e=>setForm(f=>({...f,sex:e.target.value}))}>
+                    <option value="M">Male</option>
+                    <option value="F">Female</option>
+                  </select>
+                </Field>
+              </div>
             </div>
             <Field label="Chief Complaint"><textarea required className={inputCls} rows={2} value={form.complaint} onChange={e=>setForm(f=>({...f,complaint:e.target.value}))} placeholder="Describe presenting complaint..." /></Field>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
@@ -108,7 +161,7 @@ function TriageTab() {
             </div>
             <Field label="Priority Level">
               <div className="grid grid-cols-3 gap-2">
-                {["ROUTINE","URGENT","CRITICAL"].map(p => (
+                {(["ROUTINE","URGENT","CRITICAL"] as TriagePatient["priority"][]).map(p => (
                   <button key={p} type="button" onClick={() => setForm(f=>({...f,priority:p}))}
                     className={`py-2 rounded-lg text-sm font-medium border transition-colors ${form.priority===p ? (p==="CRITICAL"?"bg-red-600 text-white border-red-600":p==="URGENT"?"bg-orange-500 text-white border-orange-500":"bg-green-600 text-white border-green-600") : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"}`}>
                     {p}
@@ -125,43 +178,61 @@ function TriageTab() {
       )}
 
       <div className="grid grid-cols-3 gap-3">
-        {[["CRITICAL",sorted.filter(t=>t.priority==="CRITICAL").length,"bg-red-50 border-red-100 text-red-700"],["URGENT",sorted.filter(t=>t.priority==="URGENT").length,"bg-orange-50 border-orange-100 text-orange-700"],["ROUTINE",sorted.filter(t=>t.priority==="ROUTINE").length,"bg-green-50 border-green-100 text-green-700"]].map(([p,c,cls])=>(
-          <div key={p} className={`rounded-xl p-4 border text-center ${cls}`}><p className="text-2xl font-bold">{c}</p><p className="text-xs font-medium mt-0.5">{p}</p></div>
-        ))}
-      </div>
-
-      <div className="space-y-3">
-        {sorted.map(t => (
-          <div key={t.id} className={`bg-white rounded-xl border-l-4 shadow-sm p-4 ${t.priority==="CRITICAL"?"border-red-500":t.priority==="URGENT"?"border-orange-500":"border-green-500"}`}>
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${PRIORITY_COLORS[t.priority]}`}>{t.priority}</span>
-                  <span className="text-xs text-gray-400 font-mono">{t.id}</span>
-                  <span className="text-xs text-gray-400">· {t.time}</span>
-                </div>
-                <p className="font-semibold text-gray-900">{t.name} <span className="text-gray-400 font-normal text-sm">({t.age}y, {t.sex})</span></p>
-                <p className="text-sm text-gray-600 mt-0.5">{t.complaint}</p>
-                <div className="flex gap-4 mt-2 text-xs text-gray-500">
-                  <span>BP: <strong className="text-gray-700">{t.bp}</strong></span>
-                  <span>Pulse: <strong className="text-gray-700">{t.pulse}</strong></span>
-                  <span>Temp: <strong className="text-gray-700">{t.temp}°C</strong></span>
-                  <span>SpO₂: <strong className={`${Number(t.spo2) < 95 ? "text-red-600" : "text-gray-700"}`}>{t.spo2}%</strong></span>
-                </div>
-              </div>
-              <div className="flex flex-col items-end gap-2">
-                <Badge label={t.status} color={t.status==="Seen"?"bg-green-100 text-green-700":"bg-yellow-100 text-yellow-700"} />
-                {t.status === "Waiting" && (
-                  <button onClick={() => setTriages(prev => prev.map(x => x.id===t.id ? {...x,status:"Seen"} : x))}
-                    className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700">
-                    Mark Seen
-                  </button>
-                )}
-              </div>
-            </div>
+        {[["CRITICAL", sorted.filter(t=>t.priority==="CRITICAL").length, "bg-red-50 border-red-100 text-red-700"],
+          ["URGENT",   sorted.filter(t=>t.priority==="URGENT").length,   "bg-orange-50 border-orange-100 text-orange-700"],
+          ["ROUTINE",  sorted.filter(t=>t.priority==="ROUTINE").length,  "bg-green-50 border-green-100 text-green-700"]].map(([p,c,cls])=>(
+          <div key={p as string} className={`rounded-xl p-4 border text-center ${cls}`}>
+            <p className="text-2xl font-bold">{c as number}</p>
+            <p className="text-xs font-medium mt-0.5">{p as string}</p>
           </div>
         ))}
       </div>
+
+      {sorted.length === 0 ? (
+        <div className="bg-white rounded-xl p-12 text-center border text-gray-400">
+          <div className="text-4xl mb-3">✅</div>
+          <p>Triage queue is empty</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {sorted.map(t => (
+            <div key={t.id} className={`bg-white rounded-xl border-l-4 shadow-sm p-4 ${t.priority==="CRITICAL"?"border-red-500":t.priority==="URGENT"?"border-orange-500":"border-green-500"}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-bold border ${PRIORITY_COLORS[t.priority]}`}>{t.priority}</span>
+                    <span className="text-xs text-gray-400 font-mono">{t.id}</span>
+                    <span className="text-xs text-gray-400">· {t.time}</span>
+                    <span className="text-xs text-gray-400">· Triaged by {t.triageBy}</span>
+                  </div>
+                  <p className="font-semibold text-gray-900">{t.name} <span className="text-gray-400 font-normal text-sm">({t.age}y, {t.sex})</span></p>
+                  <p className="text-sm text-gray-600 mt-0.5">{t.complaint}</p>
+                  <div className="flex gap-4 mt-2 text-xs text-gray-500 flex-wrap">
+                    <span>BP: <strong className="text-gray-700">{t.bp}</strong></span>
+                    <span>Pulse: <strong className="text-gray-700">{t.pulse}</strong></span>
+                    <span>Temp: <strong className="text-gray-700">{t.temp}°C</strong></span>
+                    <span>SpO₂: <strong className={Number(t.spo2) < 95 ? "text-red-600" : "text-gray-700"}>{t.spo2}%</strong></span>
+                  </div>
+                </div>
+                <div className="flex flex-col items-end gap-2 shrink-0">
+                  <Badge label={t.status} color={
+                    t.status==="Seen"?"bg-green-100 text-green-700":
+                    t.status==="Called"?"bg-blue-100 text-blue-700":
+                    t.status==="With Doctor"?"bg-purple-100 text-purple-700":
+                    "bg-yellow-100 text-yellow-700"
+                  } />
+                  {t.status === "Waiting" && (
+                    <button onClick={() => callPatient(t.id)} className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700">Call Patient</button>
+                  )}
+                  {(t.status === "Called" || t.status === "Waiting") && (
+                    <button onClick={() => markSeen(t.id)} className="text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700">Mark Seen</button>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
@@ -443,6 +514,151 @@ function LabRequestsTab() {
   );
 }
 
+// ── Department Referrals Tab ──────────────────────────────────────────────────
+function DepartmentReferralsTab({ doctorName }: { doctorName: string }) {
+  const [referrals, setReferrals] = useState<Referral[]>([]);
+  const [showForm, setShowForm] = useState(false);
+  const [toast, setToast] = useState("");
+  const [form, setForm] = useState({
+    patientName: "", patientId: "", toDepartment: "LABORATORY" as Department,
+    urgency: "ROUTINE" as Referral["urgency"], reason: "", clinicalNotes: "",
+  });
+
+  const URGENCY_COLORS: Record<string, string> = { ROUTINE: "bg-green-100 text-green-700", URGENT: "bg-orange-100 text-orange-700", STAT: "bg-red-100 text-red-700" };
+  const STATUS_COLORS: Record<string, string> = { PENDING: "bg-yellow-100 text-yellow-700", ACCEPTED: "bg-blue-100 text-blue-700", IN_PROGRESS: "bg-purple-100 text-purple-700", COMPLETED: "bg-green-100 text-green-700", DECLINED: "bg-red-100 text-red-700" };
+
+  useEffect(() => {
+    const load = () => setReferrals(getReferrals().filter(r => r.fromDoctor === doctorName || true));
+    load();
+    const interval = setInterval(load, 3000);
+    return () => clearInterval(interval);
+  }, [doctorName]);
+
+  const send = (e: React.FormEvent) => {
+    e.preventDefault();
+    addReferral({ ...form, fromDoctor: doctorName, fromDepartment: "General Medicine" });
+    setReferrals(getReferrals());
+    setForm({ patientName:"", patientId:"", toDepartment:"LABORATORY", urgency:"ROUTINE", reason:"", clinicalNotes:"" });
+    setShowForm(false);
+    setToast(`Referral sent to ${DEPARTMENT_LABELS[form.toDepartment]}`);
+    setTimeout(() => setToast(""), 3500);
+  };
+
+  const pending   = referrals.filter(r => r.status === "PENDING").length;
+  const accepted  = referrals.filter(r => r.status === "ACCEPTED" || r.status === "IN_PROGRESS").length;
+  const completed = referrals.filter(r => r.status === "COMPLETED").length;
+
+  return (
+    <div className="space-y-4">
+      {toast && <div className="fixed top-5 right-5 z-50 bg-green-600 text-white px-4 py-3 rounded-xl shadow-lg text-sm font-medium">✓ {toast}</div>}
+
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-gray-900">Department Referrals</h2>
+          <p className="text-sm text-gray-500 mt-0.5">Send patients to other departments · Auto-updates every 3s</p>
+        </div>
+        <button onClick={() => setShowForm(true)} className="bg-purple-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-purple-700">🔗 New Referral</button>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-yellow-50 border border-yellow-100 rounded-xl p-3 text-center"><p className="text-xl font-bold text-yellow-700">{pending}</p><p className="text-xs text-yellow-600 font-medium">Pending</p></div>
+        <div className="bg-blue-50 border border-blue-100 rounded-xl p-3 text-center"><p className="text-xl font-bold text-blue-700">{accepted}</p><p className="text-xs text-blue-600 font-medium">In Progress</p></div>
+        <div className="bg-green-50 border border-green-100 rounded-xl p-3 text-center"><p className="text-xl font-bold text-green-700">{completed}</p><p className="text-xs text-green-600 font-medium">Completed</p></div>
+      </div>
+
+      {/* Department quick-select */}
+      <div className="bg-white rounded-xl border shadow-sm p-4">
+        <p className="text-sm font-semibold text-gray-700 mb-3">Quick Referral to Department</p>
+        <div className="grid grid-cols-3 md:grid-cols-4 gap-2">
+          {(Object.keys(DEPARTMENT_LABELS) as Department[]).map(dept => (
+            <button key={dept} onClick={() => { setForm(f => ({ ...f, toDepartment: dept })); setShowForm(true); }}
+              className="flex flex-col items-center gap-1 p-3 bg-gray-50 hover:bg-purple-50 border border-gray-100 hover:border-purple-200 rounded-xl transition-colors text-center">
+              <span className="text-xl">{DEPARTMENT_ICONS[dept]}</span>
+              <span className="text-xs font-medium text-gray-700 leading-tight">{DEPARTMENT_LABELS[dept]}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {showForm && (
+        <Modal title="Send Department Referral" onClose={() => setShowForm(false)}>
+          <form onSubmit={send} className="space-y-4">
+            <div className="grid grid-cols-2 gap-3">
+              <Field label="Patient">
+                <select required className={inputCls} value={form.patientId} onChange={e => { const p = PATIENTS.find(x=>x.id===e.target.value); setForm(f=>({...f,patientId:e.target.value,patientName:p?.name||""})); }}>
+                  <option value="">Select patient</option>
+                  {PATIENTS.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+              </Field>
+              <Field label="Urgency">
+                <select className={inputCls} value={form.urgency} onChange={e=>setForm(f=>({...f,urgency:e.target.value as Referral["urgency"]}))}>
+                  <option value="ROUTINE">Routine</option>
+                  <option value="URGENT">Urgent</option>
+                  <option value="STAT">STAT (Immediate)</option>
+                </select>
+              </Field>
+            </div>
+            <Field label="Refer To Department">
+              <select required className={inputCls} value={form.toDepartment} onChange={e=>setForm(f=>({...f,toDepartment:e.target.value as Department}))}>
+                {(Object.keys(DEPARTMENT_LABELS) as Department[]).map(d => (
+                  <option key={d} value={d}>{DEPARTMENT_ICONS[d]} {DEPARTMENT_LABELS[d]}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Reason for Referral">
+              <input required className={inputCls} value={form.reason} onChange={e=>setForm(f=>({...f,reason:e.target.value}))} placeholder="e.g. Chest X-Ray for suspected pneumonia" />
+            </Field>
+            <Field label="Clinical Notes">
+              <textarea required className={inputCls} rows={3} value={form.clinicalNotes} onChange={e=>setForm(f=>({...f,clinicalNotes:e.target.value}))} placeholder="Relevant clinical information for the receiving department..." />
+            </Field>
+            {form.urgency === "STAT" && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-sm text-red-700 font-medium">⚠ STAT referral — receiving department will be notified immediately</div>
+            )}
+            <div className="flex gap-3 pt-2 border-t">
+              <button type="button" onClick={() => setShowForm(false)} className="flex-1 border border-gray-300 py-2 rounded-lg text-sm hover:bg-gray-50">Cancel</button>
+              <button type="submit" className="flex-1 bg-purple-600 text-white py-2 rounded-lg text-sm font-medium hover:bg-purple-700">Send Referral</button>
+            </div>
+          </form>
+        </Modal>
+      )}
+
+      {referrals.length === 0 ? (
+        <div className="bg-white rounded-xl p-12 text-center border">
+          <div className="text-4xl mb-3">🔗</div>
+          <p className="text-gray-500">No referrals sent yet</p>
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {referrals.map(r => (
+            <div key={r.id} className={`bg-white rounded-xl border-l-4 shadow-sm p-4 ${r.urgency==="STAT"?"border-red-500":r.urgency==="URGENT"?"border-orange-500":"border-purple-400"}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <Badge label={r.urgency} color={URGENCY_COLORS[r.urgency]} />
+                    <Badge label={r.status.replace("_"," ")} color={STATUS_COLORS[r.status]} />
+                    <span className="text-xs text-gray-400 font-mono">{r.id}</span>
+                  </div>
+                  <p className="font-semibold text-gray-900">{r.patientName}</p>
+                  <p className="text-sm text-purple-700 font-medium">{DEPARTMENT_ICONS[r.toDepartment]} {DEPARTMENT_LABELS[r.toDepartment]}</p>
+                  <p className="text-xs text-gray-600 mt-1">{r.reason}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">Sent: {r.sentAt}</p>
+                  {r.response && (
+                    <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded-lg">
+                      <p className="text-xs font-bold text-green-700 mb-0.5">Response from {DEPARTMENT_LABELS[r.toDepartment]}</p>
+                      <p className="text-xs text-gray-700">{r.response}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── RBAC: which staffTypes can access which tabs ──────────────────────────────
 const DOCTOR_TYPES = new Set(["DOCTOR","SURGEON","SPECIALIST","RESIDENT_DOCTOR","INTERN_DOCTOR","ANESTHESIOLOGIST","ICU_SPECIALIST","PSYCHIATRIST","CLINICAL_OFFICER"]);
 const NURSE_TYPES  = new Set(["NURSE","SENIOR_NURSE","MIDWIFE","NURSE_ANESTHETIST"]);
@@ -462,23 +678,29 @@ function AccessDenied({ tab }: { tab: string }) {
 export default function MedicalStaffDashboard() {
   const [tab, setTab] = useState("overview");
   const [staffType, setStaffType] = useState<string>("");
+  const [staffName, setStaffName] = useState("Doctor");
 
   useEffect(() => {
     try {
       const u = JSON.parse(localStorage.getItem("user") || "{}");
       setStaffType(u.staffType || "DOCTOR");
+      setStaffName(u.name || "Doctor");
     } catch { /* ignore */ }
   }, []);
 
   const isDoctor = DOCTOR_TYPES.has(staffType);
   const isNurse  = NURSE_TYPES.has(staffType);
 
-  // Build nav based on staffType
+  // Build nav based on staffType — RBAC enforced
   const navItems = [
     { id: "overview",  label: "Overview",        icon: "📊" },
-    ...(isDoctor || isNurse ? [{ id: "triage", label: "Triage", icon: "🚨" }] : []),
+    ...(isDoctor || isNurse ? [{ id: "triage",    label: "Triage",         icon: "🚨" }] : []),
     { id: "patients",  label: "My Patients",     icon: "🏥" },
-    ...(isDoctor ? [{ id: "lab", label: "Lab Requests", icon: "🔬" }] : []),
+    ...(isDoctor ? [
+      { id: "clinical",  label: "Clinical Notes", icon: "📋" },
+      { id: "lab",       label: "Lab Requests",   icon: "🔬" },
+      { id: "referrals", label: "Referrals",      icon: "🔗" },
+    ] : []),
     { id: "schedule",  label: "Schedule",        icon: "📅" },
     { id: "profile",   label: "My Profile",      icon: "👤" },
   ];
@@ -490,14 +712,30 @@ export default function MedicalStaffDashboard() {
       <div className="space-y-6">
         <div>
           <h2 className="text-xl font-bold text-gray-900">Today&apos;s Overview</h2>
-          <p className="text-sm text-gray-500 mt-0.5">Welcome, {staffLabel}</p>
+          <p className="text-sm text-gray-500 mt-0.5">Welcome, {staffName} · {staffLabel}</p>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <StatCard label="Today's Patients" value="12" icon="🏥" color="bg-blue-600" />
-          {(isDoctor || isNurse) && <StatCard label="Triage Queue" value="4" icon="🚨" color="bg-red-500" />}
-          {isDoctor && <StatCard label="Lab Requests" value="3" icon="🔬" color="bg-yellow-500" />}
-          <StatCard label="Schedule" value="8" icon="📅" color="bg-green-600" />
+          {(isDoctor || isNurse) && <StatCard label="Triage Queue" value={String(getTriageQueue().filter(t=>t.status==="Waiting").length)} icon="🚨" color="bg-red-500" />}
+          {isDoctor && <StatCard label="Lab Requests" value={String(getLabRequests().filter(r=>r.status==="PENDING").length)} icon="🔬" color="bg-yellow-500" />}
+          {isDoctor && <StatCard label="Referrals" value={String(getReferrals().filter(r=>r.status==="PENDING").length)} icon="🔗" color="bg-purple-600" />}
         </div>
+
+        {/* RBAC role info */}
+        <div className="bg-blue-50 border border-blue-100 rounded-xl p-4">
+          <p className="text-sm font-semibold text-blue-800 mb-2">Your Access Level — {staffLabel}</p>
+          <div className="flex flex-wrap gap-2">
+            {[
+              ...(isDoctor || isNurse ? ["🚨 Triage"] : []),
+              "🏥 My Patients",
+              ...(isDoctor ? ["📋 Clinical Notes", "🔬 Lab Requests", "🔗 Referrals"] : []),
+              "📅 Schedule",
+            ].map(item => (
+              <span key={item} className="px-2 py-1 bg-blue-100 text-blue-700 rounded-lg text-xs font-medium">{item}</span>
+            ))}
+          </div>
+        </div>
+
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {(isDoctor || isNurse) && (
             <button onClick={() => setTab("triage")} className="rounded-xl p-4 border text-left hover:shadow-md transition-shadow bg-red-50 border-red-100 text-red-700">
@@ -507,23 +745,26 @@ export default function MedicalStaffDashboard() {
             </button>
           )}
           {isDoctor && (
-            <button onClick={() => setTab("lab")} className="rounded-xl p-4 border text-left hover:shadow-md transition-shadow bg-yellow-50 border-yellow-100 text-yellow-700">
-              <div className="text-2xl mb-1">🔬</div>
-              <p className="font-semibold text-sm">Lab Requests</p>
-              <p className="text-xs opacity-70 mt-0.5">Open →</p>
-            </button>
+            <>
+              <button onClick={() => setTab("clinical")} className="rounded-xl p-4 border text-left hover:shadow-md transition-shadow bg-blue-50 border-blue-100 text-blue-700">
+                <div className="text-2xl mb-1">📋</div>
+                <p className="font-semibold text-sm">Clinical Notes</p>
+                <p className="text-xs opacity-70 mt-0.5">Open →</p>
+              </button>
+              <button onClick={() => setTab("lab")} className="rounded-xl p-4 border text-left hover:shadow-md transition-shadow bg-yellow-50 border-yellow-100 text-yellow-700">
+                <div className="text-2xl mb-1">🔬</div>
+                <p className="font-semibold text-sm">Lab Requests</p>
+                <p className="text-xs opacity-70 mt-0.5">Open →</p>
+              </button>
+              <button onClick={() => setTab("referrals")} className="rounded-xl p-4 border text-left hover:shadow-md transition-shadow bg-purple-50 border-purple-100 text-purple-700">
+                <div className="text-2xl mb-1">🔗</div>
+                <p className="font-semibold text-sm">Referrals</p>
+                <p className="text-xs opacity-70 mt-0.5">Open →</p>
+              </button>
+            </>
           )}
-          <button onClick={() => setTab("patients")} className="rounded-xl p-4 border text-left hover:shadow-md transition-shadow bg-blue-50 border-blue-100 text-blue-700">
-            <div className="text-2xl mb-1">🏥</div>
-            <p className="font-semibold text-sm">My Patients</p>
-            <p className="text-xs opacity-70 mt-0.5">Open →</p>
-          </button>
-          <button onClick={() => setTab("schedule")} className="rounded-xl p-4 border text-left hover:shadow-md transition-shadow bg-green-50 border-green-100 text-green-700">
-            <div className="text-2xl mb-1">📅</div>
-            <p className="font-semibold text-sm">Schedule</p>
-            <p className="text-xs opacity-70 mt-0.5">Open →</p>
-          </button>
         </div>
+
         <div className="bg-white rounded-xl p-5 shadow-sm border">
           <h3 className="font-semibold text-gray-800 mb-3">Today&apos;s Schedule</h3>
           {[["09:00","John Doe","General Checkup","CONFIRMED"],["10:30","Jane Smith","Follow-up","PENDING"],["11:00","Ali Hassan","Consultation","CONFIRMED"],["14:00","Mary Wanjiku","Lab Review","PENDING"]].map(([time,name,reason,status])=>(
@@ -536,8 +777,10 @@ export default function MedicalStaffDashboard() {
         </div>
       </div>
     ),
-    triage:   (isDoctor || isNurse) ? <TriageTab /> : <AccessDenied tab="Triage" />,
+    triage:   (isDoctor || isNurse) ? <TriageTab canAdd={isNurse || isDoctor} /> : <AccessDenied tab="Triage" />,
+    clinical: isDoctor ? <ClinicalSummaryTab /> : <AccessDenied tab="Clinical Notes" />,
     lab:      isDoctor ? <LabRequestsTab /> : <AccessDenied tab="Lab Requests" />,
+    referrals: isDoctor ? <DepartmentReferralsTab doctorName={staffName} /> : <AccessDenied tab="Department Referrals" />,
     patients: <div className="bg-white rounded-xl p-8 text-center text-gray-400 border"><div className="text-4xl mb-3">🏥</div><p className="font-medium text-gray-600">My Patients</p></div>,
     schedule: <div className="bg-white rounded-xl p-8 text-center text-gray-400 border"><div className="text-4xl mb-3">📅</div><p className="font-medium text-gray-600">Schedule</p></div>,
     profile:  <UserProfile />,
@@ -545,7 +788,7 @@ export default function MedicalStaffDashboard() {
 
   return (
     <DashboardShell title="Staff Portal" role={staffLabel} accentColor="bg-blue-700" icon="🩺" navItems={navItems} activeTab={tab} onTabChange={setTab}>
-      {content[tab]}
+      {content[tab] ?? <AccessDenied tab={tab} />}
     </DashboardShell>
   );
 }
