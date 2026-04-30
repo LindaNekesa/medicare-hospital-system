@@ -1,88 +1,84 @@
-"use client";
+"use client"
 
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect, useCallback } from "react"
 
 type Doctor = {
-  id: number;
-  name: string;
-  email: string;
-  doctorAppointments: {
-    id: number;
-    appointmentDate: string;
-    patient: { firstName: string; lastName: string };
-  }[];
-  tasks: { id: number; title: string; dueDate: string }[];
-};
+  id: number
+  name: string
+  email: string
+  doctorAppointments?: { id: number; appointmentDate: string; patient: { firstName: string; lastName: string } }[]
+  tasks?: { id: number; title: string; dueDate: string }[]
+}
 
 export default function DoctorStatusTable() {
-  // ✅ FIXED (React Query v5 syntax)
-  const { data: doctors = [], isLoading } = useQuery<Doctor[]>({
-    queryKey: ["doctors"],
-    queryFn: async () => {
-      const res = await fetch("/api/staff");
-      if (!res.ok) throw new Error("Failed to fetch staff");
-      return res.json();
-    },
-    refetchInterval: 5000, // refresh every 5 seconds
-  });
+  const [doctors, setDoctors] = useState<Doctor[]>([])
+  const [loading, setLoading] = useState(true)
 
-  if (isLoading) return <p>Loading doctors...</p>;
+  const load = useCallback(() => {
+    fetch("/api/staff")
+      .then(r => r.ok ? r.json() : [])
+      .then(d => { setDoctors(Array.isArray(d) ? d : []); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [])
+
+  useEffect(() => {
+    load()
+    // Refresh every 5 seconds
+    const interval = setInterval(load, 5000)
+    return () => clearInterval(interval)
+  }, [load])
+
+  if (loading) return <p className="text-gray-500 py-4">Loading doctors...</p>
 
   return (
-    <table className="min-w-full border">
-      <thead className="bg-gray-100">
-        <tr>
-          <th className="p-2 border">Doctor</th>
-          <th className="p-2 border">Pending Appointments</th>
-          <th className="p-2 border">Pending Tasks</th>
-          <th className="p-2 border">Availability</th>
-        </tr>
-      </thead>
-      <tbody>
-        {doctors.map((doc) => (
-          <tr key={doc.id} className="border-b">
-            <td className="p-2">{doc.name}</td>
-
-            <td className="p-2">
-              {doc.doctorAppointments.length === 0 ? (
-                <span className="text-green-600 font-semibold">None</span>
-              ) : (
-                doc.doctorAppointments.map((appt) => (
-                  <div key={appt.id}>
-                    {appt.patient.firstName} {appt.patient.lastName} —{" "}
-                    {new Date(appt.appointmentDate).toLocaleString()}
-                  </div>
-                ))
-              )}
-            </td>
-
-            <td className="p-2">
-              {doc.tasks.length === 0 ? (
-                <span className="text-green-600 font-semibold">None</span>
-              ) : (
-                doc.tasks.map((task) => (
-                  <div key={task.id}>
-                    {task.title} — due{" "}
-                    {new Date(task.dueDate).toLocaleDateString()}
-                  </div>
-                ))
-              )}
-            </td>
-
-            <td className="p-2">
-              {doc.doctorAppointments.length === 0 ? (
-                <span className="bg-green-200 text-green-800 px-2 py-1 rounded">
-                  Available
-                </span>
-              ) : (
-                <span className="bg-red-200 text-red-800 px-2 py-1 rounded">
-                  Busy
-                </span>
-              )}
-            </td>
+    <div className="overflow-x-auto">
+      <table className="min-w-full border border-gray-200 text-sm rounded-lg overflow-hidden">
+        <thead className="bg-gray-100">
+          <tr>
+            {["Doctor", "Pending Appointments", "Pending Tasks", "Availability"].map(h => (
+              <th key={h} className="p-3 border text-left text-xs font-semibold text-gray-500 uppercase">{h}</th>
+            ))}
           </tr>
-        ))}
-      </tbody>
-    </table>
-  );
+        </thead>
+        <tbody>
+          {doctors.length === 0 ? (
+            <tr><td colSpan={4} className="p-6 text-center text-gray-400">No doctors found</td></tr>
+          ) : doctors.map(doc => {
+            const appts = doc.doctorAppointments ?? []
+            const tasks = doc.tasks ?? []
+            return (
+              <tr key={doc.id} className="border-b hover:bg-gray-50">
+                <td className="p-3 font-medium text-gray-900">{doc.name}</td>
+                <td className="p-3">
+                  {appts.length === 0 ? (
+                    <span className="text-green-600 font-semibold">None</span>
+                  ) : appts.map(a => (
+                    <div key={a.id} className="text-xs text-gray-600">
+                      {a.patient.firstName} {a.patient.lastName} — {new Date(a.appointmentDate).toLocaleString()}
+                    </div>
+                  ))}
+                </td>
+                <td className="p-3">
+                  {tasks.length === 0 ? (
+                    <span className="text-green-600 font-semibold">None</span>
+                  ) : tasks.map(t => (
+                    <div key={t.id} className="text-xs text-gray-600">
+                      {t.title} — due {new Date(t.dueDate).toLocaleDateString()}
+                    </div>
+                  ))}
+                </td>
+                <td className="p-3">
+                  {appts.length === 0 ? (
+                    <span className="bg-green-100 text-green-700 px-2 py-1 rounded-full text-xs font-medium">Available</span>
+                  ) : (
+                    <span className="bg-red-100 text-red-700 px-2 py-1 rounded-full text-xs font-medium">Busy</span>
+                  )}
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </div>
+  )
 }

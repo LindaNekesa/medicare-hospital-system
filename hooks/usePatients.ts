@@ -1,30 +1,39 @@
 // hooks/usePatients.ts
 "use client"
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useState, useEffect, useCallback } from "react"
 import * as patientsService from "@/lib/patientsService"
 
 export function usePatients() {
-  const queryClient = useQueryClient()
+  const [data, setData]       = useState<any[]>([])
+  const [isLoading, setLoading] = useState(true)
+  const [error, setError]     = useState<Error | null>(null)
 
-  // Fetch all patients
-  const patientsQuery = useQuery(["patients"], patientsService.fetchPatients)
+  const refetch = useCallback(() => {
+    setLoading(true)
+    patientsService.fetchPatients()
+      .then(d => { setData(Array.isArray(d.data ?? d) ? (d.data ?? d) : []); setLoading(false) })
+      .catch(e => { setError(e); setLoading(false) })
+  }, [])
 
-  // Add a new patient
-  const createPatient = useMutation(patientsService.createPatient, {
-    onSuccess: () => queryClient.invalidateQueries(["patients"]),
-  })
+  useEffect(() => { refetch() }, [refetch])
 
-  // Update a patient
-  const updatePatient = useMutation(
-    ({ id, data }: { id: number; data: any }) => patientsService.updatePatient(id, data),
-    { onSuccess: () => queryClient.invalidateQueries(["patients"]) }
-  )
+  const createPatient = async (patient: any) => {
+    await patientsService.createPatient(patient)
+    refetch()
+  }
 
-  // Delete a patient
-  const deletePatient = useMutation((id: number) => patientsService.deletePatient(id), {
-    onSuccess: () => queryClient.invalidateQueries(["patients"]),
-  })
+  const updatePatient = async (id: number, patientData: any) => {
+    await patientsService.updatePatient(id, patientData)
+    refetch()
+  }
+
+  const deletePatient = async (id: number) => {
+    await patientsService.deletePatient(id)
+    refetch()
+  }
+
+  const patientsQuery = { data, isLoading, error, refetch }
 
   return { patientsQuery, createPatient, updatePatient, deletePatient }
 }

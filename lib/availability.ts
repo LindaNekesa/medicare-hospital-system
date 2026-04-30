@@ -7,7 +7,7 @@ function timeToMinutes(time: string) {
 }
 
 export async function isWithinWorkingHours(
-  doctorId: string,
+  doctorId: number,
   date: Date
 ) {
   const day = date.getDay()

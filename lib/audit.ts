@@ -5,21 +5,18 @@ export async function logAction({
   action,
   entity,
   entityId,
-  hospitalId,
 }: {
-  userId: string
+  userId: number
   action: string
   entity: string
-  entityId: string
-  hospitalId: string
+  entityId?: number
 }) {
   await prisma.auditLog.create({
     data: {
       userId,
       action,
       entity,
-      entityId,
-      hospitalId,
+      entityId: entityId ?? null,
     },
   })
 }

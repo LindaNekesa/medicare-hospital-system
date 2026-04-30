@@ -16,7 +16,7 @@ export async function GET(req: Request) {
   }
 
   const result = await getAvailableSlotsWithMeta(
-    doctorId,
+    parseInt(doctorId, 10),
     new Date(date)
   )
 

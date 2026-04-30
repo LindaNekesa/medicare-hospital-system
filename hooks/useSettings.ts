@@ -1,34 +1,35 @@
 "use client"
 
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useState, useEffect, useCallback } from "react"
 import * as settingsService from "@/lib/settingsService"
 
-export function useSettings(){
+export function useSettings() {
+  const [data, setData]         = useState<any>(null)
+  const [isLoading, setLoading] = useState(true)
+  const [error, setError]       = useState<Error | null>(null)
 
-  const queryClient = useQueryClient()
+  const refetch = useCallback(() => {
+    setLoading(true)
+    settingsService.fetchSettings()
+      .then(d => { setData(d); setLoading(false) })
+      .catch(e => { setError(e); setLoading(false) })
+  }, [])
 
-  const settingsQuery = useQuery({
+  useEffect(() => { refetch() }, [refetch])
 
-    queryKey:["settings"],
+  const settingsQuery = { data, isLoading, error, refetch }
 
-    queryFn:settingsService.fetchSettings
-
-  })
-
-  const updateSettings = useMutation({
-
-    mutationFn:settingsService.updateSettings,
-
-    onSuccess:()=>queryClient.invalidateQueries(["settings"])
-
-  })
-
-  return {
-
-    settingsQuery,
-
-    updateSettings
-
+  const updateSettings = {
+    mutate: async (formData: any) => {
+      await settingsService.updateSettings(formData)
+      refetch()
+    },
+    mutateAsync: async (formData: any) => {
+      const result = await settingsService.updateSettings(formData)
+      refetch()
+      return result
+    },
   }
 
+  return { settingsQuery, updateSettings }
 }

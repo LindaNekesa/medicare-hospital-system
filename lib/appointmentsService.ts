@@ -1,101 +1,99 @@
 import { prisma } from "@/lib/prisma"
 
 export type CreateAppointmentInput = {
-  patientId: string
-  doctorId: string
-  date: Dateco
+  patientId: number
+  staffId?: number
+  date: Date
+  time: string
   reason?: string
 }
 
 export type UpdateAppointmentInput = {
-  appointmentId: string
+  appointmentId: number
   date?: Date
+  time?: string
   status?: "PENDING" | "CONFIRMED" | "CANCELLED" | "COMPLETED"
   reason?: string
+  notes?: string
 }
 
-// 📌 Create appointment
+// Create appointment
 export async function createAppointment(data: CreateAppointmentInput) {
   return await prisma.appointment.create({
     data: {
       patientId: data.patientId,
-      doctorId: data.doctorId,
-      date: data.date,
-      reason: data.reason,
-      status: "PENDING",
+      staffId:   data.staffId ?? null,
+      date:      data.date,
+      time:      data.time,
+      reason:    data.reason ?? null,
+      status:    "PENDING",
     },
   })
 }
 
-// 📌 Get all appointments (admin/staff)
+// Get all appointments (admin/staff)
 export async function getAllAppointments() {
   return await prisma.appointment.findMany({
     include: {
-      patient: true,
-      doctor: true,
+      patient: { select: { firstName: true, lastName: true, phone: true } },
+      staff:   { select: { staffType: true, user: { select: { name: true } } } },
     },
-    orderBy: {
-      date: "desc",
-    },
+    orderBy: { date: "desc" },
   })
 }
 
-// 📌 Get appointments for a specific doctor
-export async function getDoctorAppointments(doctorId: string) {
+// Get appointments for a specific staff member
+export async function getStaffAppointments(staffId: number) {
   return await prisma.appointment.findMany({
-    where: { doctorId },
+    where: { staffId },
     include: {
-      patient: true,
+      patient: { select: { firstName: true, lastName: true } },
     },
-    orderBy: {
-      date: "asc",
-    },
+    orderBy: { date: "asc" },
   })
 }
 
-// 📌 Get appointments for a specific patient
-export async function getPatientAppointments(patientId: string) {
+// Get appointments for a specific patient
+export async function getPatientAppointments(patientId: number) {
   return await prisma.appointment.findMany({
     where: { patientId },
     include: {
-      doctor: true,
+      staff: { select: { staffType: true, user: { select: { name: true } } } },
     },
-    orderBy: {
-      date: "desc",
-    },
+    orderBy: { date: "desc" },
   })
 }
 
-// 📌 Update appointment
+// Update appointment
 export async function updateAppointment(data: UpdateAppointmentInput) {
   return await prisma.appointment.update({
     where: { id: data.appointmentId },
     data: {
-      ...(data.date && { date: data.date }),
-      ...(data.status && { status: data.status }),
-      ...(data.reason && { reason: data.reason }),
+      ...(data.date   !== undefined && { date:   data.date }),
+      ...(data.time   !== undefined && { time:   data.time }),
+      ...(data.status !== undefined && { status: data.status }),
+      ...(data.reason !== undefined && { reason: data.reason }),
+      ...(data.notes  !== undefined && { notes:  data.notes }),
     },
   })
 }
 
-// 📌 Delete appointment
-export async function deleteAppointment(appointmentId: string) {
+// Delete appointment
+export async function deleteAppointment(appointmentId: number) {
   return await prisma.appointment.delete({
     where: { id: appointmentId },
   })
 }
 
-// 📌 Check doctor availability (basic version)
-export async function isDoctorAvailable(doctorId: string, date: Date) {
+// Check if a staff member is available at a given date/time
+export async function isStaffAvailable(staffId: number, date: Date, time: string) {
   const existing = await prisma.appointment.findFirst({
     where: {
-      doctorId,
+      staffId,
       date,
-      status: {
-        in: ["PENDING", "CONFIRMED"],
-      },
+      time,
+      status: { in: ["PENDING", "CONFIRMED"] },
     },
   })
-
   return !existing
 }

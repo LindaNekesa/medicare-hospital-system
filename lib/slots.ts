@@ -13,7 +13,7 @@ function minutesToDate(base: Date, minutes: number) {
 }
 
 export async function getAvailableSlotsWithMeta(
-  doctorId: string,
+  doctorId: number,
   date: Date,
   slotDuration = 30
 ) {
@@ -28,16 +28,19 @@ export async function getAvailableSlotsWithMeta(
   }
 
   const start = toMinutes(availability.startTime)
-  const end = toMinutes(availability.endTime)
+  const end   = toMinutes(availability.endTime)
 
+  const dayStart = new Date(date)
+  dayStart.setHours(0, 0, 0, 0)
+  const dayEnd = new Date(date)
+  dayEnd.setHours(23, 59, 59, 999)
+
+  // Use staffId — the Appointment model links to MedicalStaff, not User directly
   const appointments = await prisma.appointment.findMany({
     where: {
-      doctorId,
-      date: {
-        gte: new Date(date.setHours(0, 0, 0, 0)),
-        lt: new Date(date.setHours(23, 59, 59, 999)),
-      },
-      status: { in: ["PENDING", "CONFIRMED"] },
+      staffId: doctorId,
+      date:    { gte: dayStart, lt: dayEnd },
+      status:  { in: ["PENDING", "CONFIRMED"] },
     },
   })
 
@@ -47,13 +50,11 @@ export async function getAvailableSlotsWithMeta(
 
   const slots: Date[] = []
   let total = 0
-
   const now = new Date()
 
   for (let m = start; m < end; m += slotDuration) {
     total++
     const slot = minutesToDate(date, m)
-
     if (slot <= now) continue
     if (!booked.has(slot.getTime())) {
       slots.push(slot)
@@ -63,7 +64,7 @@ export async function getAvailableSlotsWithMeta(
   return {
     slots,
     total,
-    available: slots.length,
-    isAlmostFull: slots.length / total <= 0.2,
+    available:    slots.length,
+    isAlmostFull: total > 0 && slots.length / total <= 0.2,
   }
 }
