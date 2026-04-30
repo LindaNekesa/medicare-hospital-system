@@ -37,10 +37,14 @@ export async function GET(req: NextRequest) {
       phone:     true,
       createdAt: true,
       medicalStaff: {
-        select: { staffType: true, specialty: true, department: true },
+        select: { staffType: true, specialty: true, department: true, licenseNo: true },
       },
       patient: {
-        select: { firstName: true, lastName: true, gender: true, bloodType: true, phone: true },
+        select: {
+          firstName: true, lastName: true, gender: true,
+          bloodType: true, phone: true, dateOfBirth: true,
+          address: true, insurance: true, emergencyContact: true,
+        },
       },
     },
   });

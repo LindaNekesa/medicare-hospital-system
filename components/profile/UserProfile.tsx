@@ -61,24 +61,27 @@ export default function UserProfile() {
       const res = await fetch("/api/profile", { headers: { Authorization: `Bearer ${token}` } });
       const data = await res.json();
       if (res.ok) {
-        setProfile(data.user);
-        setAvatarLetter(data.user.name?.charAt(0)?.toUpperCase() || "U");
+        const user: ProfileData = data;
+        setProfile(user);
+        setAvatarLetter(user.name?.charAt(0)?.toUpperCase() || "U");
         setEditForm({
-          name: data.user.name || "",
-          phone: data.user.phone || "",
-          specialty: data.user.medicalStaff?.specialty || "",
-          department: data.user.medicalStaff?.department || "",
-          licenseNo: data.user.medicalStaff?.licenseNo || "",
-          staffType: data.user.medicalStaff?.staffType || "",
-          firstName: data.user.patient?.firstName || "",
-          lastName: data.user.patient?.lastName || "",
-          gender: data.user.patient?.gender || "",
-          dateOfBirth: data.user.patient?.dateOfBirth ? data.user.patient.dateOfBirth.slice(0,10) : "",
-          bloodType: data.user.patient?.bloodType || "",
-          address: data.user.patient?.address || "",
-          insurance: data.user.patient?.insurance || "",
-          emergencyContact: data.user.patient?.emergencyContact || "",
+          name: user.name || "",
+          phone: user.phone || "",
+          specialty: user.medicalStaff?.specialty || "",
+          department: user.medicalStaff?.department || "",
+          licenseNo: user.medicalStaff?.licenseNo || "",
+          staffType: user.medicalStaff?.staffType || "",
+          firstName: user.patient?.firstName || "",
+          lastName: user.patient?.lastName || "",
+          gender: user.patient?.gender || "",
+          dateOfBirth: user.patient?.dateOfBirth ? user.patient.dateOfBirth.slice(0,10) : "",
+          bloodType: user.patient?.bloodType || "",
+          address: user.patient?.address || "",
+          insurance: user.patient?.insurance || "",
+          emergencyContact: user.patient?.emergencyContact || "",
         });
+      } else {
+        setToast({ msg: data.error || "Failed to load profile", type: "error" });
       }
     } catch { setToast({ msg: "Failed to load profile", type: "error" }); }
     finally { setLoading(false); }
@@ -109,7 +112,6 @@ export default function UserProfile() {
       } else {
         setToast({ msg: data.error || "Failed to update", type: "error" });
       }
-    } catch { setToast({ msg: "Something went wrong", type: "error" }); }
     finally { setSaving(false); }
   };
 
