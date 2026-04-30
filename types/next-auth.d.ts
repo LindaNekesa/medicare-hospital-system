@@ -20,15 +20,12 @@ declare module "next-auth/jwt" {
 }
 
 callbacks: {
-  async jwt({ token, user }) {
-    if (user) token.role = user.role
-    return token
-  },
   async session({ session, token }) {
-    if (session.user) {
-      session.user.role = token.role
-    }
-    return session
+  session.user.id = token.id
+  session.user.role = token.role
+  session.user.permissions = token.permissions
+  return session
+}
   },
   async redirect({ url, baseUrl }) {
     return baseUrl

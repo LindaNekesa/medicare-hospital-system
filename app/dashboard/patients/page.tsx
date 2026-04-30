@@ -56,3 +56,4 @@ export default function PatientsPage() {
     </DashboardLayout>
   )
 }
+"records tab placeholder"
