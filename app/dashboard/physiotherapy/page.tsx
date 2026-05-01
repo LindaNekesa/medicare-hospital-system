@@ -1,11 +1,13 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DashboardShell from "@/components/layout/DashboardShell";
 import UserProfile from "@/components/profile/UserProfile";
+import { getReferralsByDepartment, updateReferral, Referral } from "@/lib/referralStore";
 
 const NAV = [
   { id: "overview",    label: "Overview",          icon: "📊" },
-  { id: "referrals",   label: "Referrals",         icon: "📥" },
+  { id: "referrals",   label: "Referrals",         icon: "🔗" },
+  { id: "referrals_in",label: "Incoming Requests", icon: "📥" },
   { id: "assessment",  label: "Assessment",        icon: "🩺" },
   { id: "treatment",   label: "Treatment Plans",   icon: "💪" },
   { id: "progress",    label: "Progress Notes",    icon: "📈" },
@@ -21,9 +23,53 @@ const PATIENTS = [
 
 export default function PhysiotherapyDashboard() {
   const [tab, setTab] = useState("overview");
+  const [incomingReferrals, setIncomingReferrals] = useState<Referral[]>([]);
+  const [toast, setToast] = useState("");
+
+  useEffect(() => {
+    const load = () => setIncomingReferrals(getReferralsByDepartment("PHYSIOTHERAPY"));
+    load();
+    const interval = setInterval(load, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const acceptRef = (id: string) => { updateReferral(id, { status: "ACCEPTED" }); setIncomingReferrals(getReferralsByDepartment("PHYSIOTHERAPY")); setToast("Referral accepted"); setTimeout(()=>setToast(""),2500); };
+  const completeRef = (id: string) => { updateReferral(id, { status: "COMPLETED", response: "Physiotherapy session completed. Home exercise program provided.", respondedAt: new Date().toLocaleString() }); setIncomingReferrals(getReferralsByDepartment("PHYSIOTHERAPY")); setToast("Referral completed"); setTimeout(()=>setToast(""),2500); };
 
   return (
     <DashboardShell title="Physiotherapy" role="Physiotherapist" accentColor="bg-teal-700" icon="💪" navItems={NAV} activeTab={tab} onTabChange={setTab}>
+      {toast && <div className="fixed top-5 right-5 z-[100] bg-green-600 text-white px-4 py-3 rounded-xl shadow-lg text-sm font-medium">✓ {toast}</div>}
+
+      {tab === "referrals_in" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div><h2 className="text-lg font-bold text-gray-900">Incoming Referrals</h2><p className="text-sm text-gray-500 mt-0.5">From doctors · Auto-updates every 3s</p></div>
+            <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-semibold">{incomingReferrals.filter(r=>r.status==="PENDING").length} Pending</span>
+          </div>
+          {incomingReferrals.length === 0 ? (
+            <div className="bg-white rounded-xl p-12 text-center border text-gray-400"><div className="text-4xl mb-3">🔗</div><p>No referrals yet</p></div>
+          ) : incomingReferrals.map(r => (
+            <div key={r.id} className={`bg-white rounded-xl border-l-4 shadow-sm p-4 ${r.urgency==="STAT"?"border-red-500":r.urgency==="URGENT"?"border-orange-500":"border-teal-400"}`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1">
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${r.urgency==="STAT"?"bg-red-100 text-red-700":r.urgency==="URGENT"?"bg-orange-100 text-orange-700":"bg-green-100 text-green-700"}`}>{r.urgency}</span>
+                    <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${r.status==="PENDING"?"bg-yellow-100 text-yellow-700":r.status==="COMPLETED"?"bg-green-100 text-green-700":"bg-blue-100 text-blue-700"}`}>{r.status}</span>
+                  </div>
+                  <p className="font-semibold text-gray-900">{r.patientName}</p>
+                  <p className="text-sm text-teal-700">{r.reason}</p>
+                  <p className="text-xs text-gray-500 mt-1 italic">{r.clinicalNotes}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">From: {r.fromDoctor} · {r.sentAt}</p>
+                </div>
+                <div className="flex flex-col gap-2 shrink-0">
+                  {r.status === "PENDING" && <button onClick={() => acceptRef(r.id)} className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 font-medium">Accept</button>}
+                  {(r.status === "ACCEPTED" || r.status === "IN_PROGRESS") && <button onClick={() => completeRef(r.id)} className="text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 font-medium">Complete</button>}
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {tab === "overview" && (
         <div className="space-y-6">

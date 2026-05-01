@@ -21,7 +21,7 @@ async function main() {
   await prisma.medicalStaff.upsert({ where:{userId:nurse.id}, update:{}, create:{userId:nurse.id,staffType:'NURSE',department:'General'} });
 
   const pat = await prisma.user.upsert({ where:{email:'patient@medicare.com'}, update:{}, create:{name:'John Doe',email:'patient@medicare.com',password:await h('Patient1234!'),role:'PATIENT'} });
-  await prisma.patient.upsert({ where:{userId:pat.id}, update:{}, create:{userId:pat.id,firstName:'John',lastName:'Doe',gender:'MALE',dateOfBirth:new Date('1985-06-15'),bloodType:'O+',phone:'0733333333'} });
+  await prisma.patient.upsert({ where:{userId:pat.id}, update:{}, create:{userId:pat.id,firstName:'John',lastName:'Doe',gender:'MALE',dateOfBirth:new Date('1985-06-15'),bloodType:'O+',phone:'0733333333',nationalId:'12345678'} });
 
   const cg = await prisma.user.upsert({ where:{email:'caregiver@medicare.com'}, update:{}, create:{name:'Mary Caregiver',email:'caregiver@medicare.com',password:await h('Care1234!'),role:'CAREGIVER'} });
   await prisma.caregiver.upsert({ where:{userId:cg.id}, update:{}, create:{userId:cg.id,relation:'Family Member'} });

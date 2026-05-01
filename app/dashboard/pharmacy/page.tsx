@@ -1,10 +1,12 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DashboardShell from "@/components/layout/DashboardShell";
 import UserProfile from "@/components/profile/UserProfile";
+import { getReferralsByDepartment, updateReferral, Referral } from "@/lib/referralStore";
 
 const NAV = [
   { id: "overview",      label: "Overview",           icon: "📊" },
+  { id: "referrals",     label: "Referrals",          icon: "🔗" },
   { id: "prescriptions", label: "Prescriptions",      icon: "📋" },
   { id: "dispensing",    label: "Dispensing",         icon: "💊" },
   { id: "inventory",     label: "Drug Inventory",     icon: "📦" },
@@ -36,7 +38,29 @@ const INVENTORY = [
 export default function PharmacyDashboard() {
   const [tab, setTab] = useState("overview");
   const [prescriptions, setPrescriptions] = useState(PRESCRIPTIONS);
+  const [referrals, setReferrals] = useState<Referral[]>([]);
   const [toast, setToast] = useState("");
+
+  useEffect(() => {
+    const load = () => setReferrals(getReferralsByDepartment("PHARMACY"));
+    load();
+    const interval = setInterval(load, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const acceptReferral = (id: string) => {
+    updateReferral(id, { status: "ACCEPTED" });
+    setReferrals(getReferralsByDepartment("PHARMACY"));
+    setToast("Referral accepted");
+    setTimeout(() => setToast(""), 2500);
+  };
+
+  const completeReferral = (id: string, response: string) => {
+    updateReferral(id, { status: "COMPLETED", response, respondedAt: new Date().toLocaleString() });
+    setReferrals(getReferralsByDepartment("PHARMACY"));
+    setToast("Referral completed");
+    setTimeout(() => setToast(""), 2500);
+  };
 
   const dispense = (id: string) => {
     setPrescriptions(p => p.map(x => x.id === id ? { ...x, status: "DISPENSED" } : x));
@@ -83,6 +107,54 @@ export default function PharmacyDashboard() {
               ))}
             </div>
           </div>
+        </div>
+      )}
+
+      {tab === "referrals" && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">Incoming Referrals</h2>
+              <p className="text-sm text-gray-500 mt-0.5">From doctors · Auto-updates every 3 seconds</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-semibold">{referrals.filter(r=>r.status==="PENDING").length} Pending</span>
+            </div>
+          </div>
+          {referrals.length === 0 ? (
+            <div className="bg-white rounded-xl p-12 text-center border text-gray-400">
+              <div className="text-4xl mb-3">🔗</div>
+              <p>No referrals yet — auto-updates every 3 seconds</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {referrals.map(r => (
+                <div key={r.id} className={`bg-white rounded-xl border-l-4 shadow-sm p-4 ${r.urgency==="STAT"?"border-red-500":r.urgency==="URGENT"?"border-orange-500":"border-purple-400"}`}>
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${r.urgency==="STAT"?"bg-red-100 text-red-700":r.urgency==="URGENT"?"bg-orange-100 text-orange-700":"bg-green-100 text-green-700"}`}>{r.urgency}</span>
+                        <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${r.status==="PENDING"?"bg-yellow-100 text-yellow-700":r.status==="COMPLETED"?"bg-green-100 text-green-700":"bg-blue-100 text-blue-700"}`}>{r.status}</span>
+                        <span className="text-xs text-gray-400 font-mono">{r.id}</span>
+                      </div>
+                      <p className="font-semibold text-gray-900">{r.patientName}</p>
+                      <p className="text-sm text-purple-700 font-medium">{r.reason}</p>
+                      <p className="text-xs text-gray-500 mt-1 italic">{r.clinicalNotes}</p>
+                      <p className="text-xs text-gray-400 mt-0.5">From: {r.fromDoctor} · {r.sentAt}</p>
+                    </div>
+                    <div className="flex flex-col gap-2 shrink-0">
+                      {r.status === "PENDING" && (
+                        <button onClick={() => acceptReferral(r.id)} className="text-xs bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 font-medium">Accept</button>
+                      )}
+                      {(r.status === "ACCEPTED" || r.status === "IN_PROGRESS") && (
+                        <button onClick={() => completeReferral(r.id, "Medication dispensed as requested.")} className="text-xs bg-green-600 text-white px-3 py-1.5 rounded-lg hover:bg-green-700 font-medium">Complete</button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 

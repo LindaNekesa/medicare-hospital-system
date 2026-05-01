@@ -1,10 +1,12 @@
 "use client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import DashboardShell from "@/components/layout/DashboardShell";
 import UserProfile from "@/components/profile/UserProfile";
+import { getReferralsByDepartment, updateReferral, Referral } from "@/lib/referralStore";
 
 const NAV = [
   { id: "overview",   label: "Overview",           icon: "📊" },
+  { id: "referrals",  label: "Doctor Referrals",   icon: "🔗" },
   { id: "requests",   label: "Imaging Requests",   icon: "📥" },
   { id: "perform",    label: "Perform Study",       icon: "🩻" },
   { id: "reports",    label: "Radiology Reports",   icon: "📋" },
@@ -534,6 +536,18 @@ export default function RadiographerDashboard() {
   const [tab, setTab] = useState("overview");
   const [performTarget, setPerformTarget] = useState<ImagingRequest | null>(null);
   const [requests, setRequests] = useState<ImagingRequest[]>(IMAGING_REQUESTS);
+  const [docReferrals, setDocReferrals] = useState<Referral[]>([]);
+  const [toast, setToast] = useState("");
+
+  useEffect(() => {
+    const load = () => setDocReferrals(getReferralsByDepartment("RADIOLOGY"));
+    load();
+    const interval = setInterval(load, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const acceptRef = (id: string) => { updateReferral(id, { status: "ACCEPTED" }); setDocReferrals(getReferralsByDepartment("RADIOLOGY")); setToast("Referral accepted"); setTimeout(()=>setToast(""),2500); };
+  const completeRef = (id: string) => { updateReferral(id, { status: "COMPLETED", response: "Imaging study completed. Report sent to requesting doctor.", respondedAt: new Date().toLocaleString() }); setDocReferrals(getReferralsByDepartment("RADIOLOGY")); setToast("Report sent to doctor"); setTimeout(()=>setToast(""),2500); };
 
   const handlePerform = (r: ImagingRequest) => { setPerformTarget(r); setTab("perform"); };
 

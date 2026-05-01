@@ -55,6 +55,11 @@ model Patient {
   phone            String?
   insurance        String?
   emergencyContact String?
+  // Patient ID-based login fields
+  nationalId       String?  @unique   // National ID / Passport number
+  otpCode          String?            // 6-digit OTP
+  otpExpiry        DateTime?          // Expires 10 minutes after generation
+  otpVerified      Boolean  @default(false)
   createdAt        DateTime @default(now())
   updatedAt        DateTime @updatedAt
 
@@ -62,11 +67,11 @@ model Patient {
   medicalRecords MedicalRecord[]
   bills          Bill[]
 
-  // Indexes for search and date-range queries (critical for 2000+/day)
   @@index([firstName, lastName])
   @@index([phone])
   @@index([createdAt])
   @@index([insurance])
+  @@index([nationalId])
 }
 
 // ── Medical Staff ─────────────────────────────────────────────────────────────
