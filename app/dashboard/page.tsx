@@ -59,23 +59,47 @@ export default function DashboardRouter() {
   const router = useRouter();
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem("user");
-      if (!raw) { router.replace("/login"); return; }
-      const user = JSON.parse(raw);
+    const route = async () => {
+      try {
+        const raw = localStorage.getItem("user");
+        if (!raw) { router.replace("/login"); return; }
+        let user = JSON.parse(raw);
 
-      // Check staffType first for granular routing
-      if (user.role === "MEDICAL_STAFF" && user.staffType) {
-        const staffPath = STAFF_TYPE_ROUTES[user.staffType];
-        if (staffPath) { router.replace(staffPath); return; }
+        // If MEDICAL_STAFF but staffType is missing, fetch it from the profile API
+        if (user.role === "MEDICAL_STAFF" && !user.staffType) {
+          try {
+            const token = localStorage.getItem("auth_token");
+            const res = await fetch("/api/profile", {
+              headers: token ? { Authorization: `Bearer ${token}` } : {},
+            });
+            if (res.ok) {
+              const profile = await res.json();
+              const fetchedStaffType = profile.medicalStaff?.staffType ?? null;
+              if (fetchedStaffType) {
+                user = { ...user, staffType: fetchedStaffType };
+                localStorage.setItem("user", JSON.stringify(user));
+              }
+            }
+          } catch {
+            // If fetch fails, continue with what we have
+          }
+        }
+
+        // Check staffType first for granular routing
+        if (user.role === "MEDICAL_STAFF" && user.staffType) {
+          const staffPath = STAFF_TYPE_ROUTES[user.staffType];
+          if (staffPath) { router.replace(staffPath); return; }
+        }
+
+        // Fall back to role-based routing
+        const path = ROLE_ROUTES[user.role] || "/dashboard/patient";
+        router.replace(path);
+      } catch {
+        router.replace("/login");
       }
+    };
 
-      // Fall back to role-based routing
-      const path = ROLE_ROUTES[user.role] || "/dashboard/patient";
-      router.replace(path);
-    } catch {
-      router.replace("/login");
-    }
+    route();
   }, [router]);
 
   return (

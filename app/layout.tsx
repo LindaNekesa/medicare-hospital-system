@@ -1,17 +1,17 @@
 import { ReactNode } from "react";
 import "../styles/globals.css";
-import { Geist } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 import { cn } from "@/lib/utils";
 import type { Metadata } from "next";
-
-const geist = Geist({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
   title: {
     default: "Medicare Hospital System",
     template: "%s | Medicare Hospital",
   },
-  description: "Medicare Hospital — integrated hospital management system for clinical staff, patients, and administration.",
+  description:
+    "Medicare Hospital — integrated hospital management system for clinical staff, patients, and administration.",
   keywords: ["hospital", "medicare", "medical", "healthcare", "hospital management"],
   authors: [{ name: "Medicare Hospital" }],
   creator: "Medicare Hospital System",
@@ -35,8 +35,11 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="en" className={cn("font-sans", geist.variable)}>
-      <body className="bg-gray-100 min-h-screen font-sans">
+    <html
+      lang="en"
+      className={cn(GeistSans.variable, GeistMono.variable)}
+    >
+      <body className="bg-gray-100 min-h-screen font-sans antialiased">
         {children}
       </body>
     </html>

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import bcrypt from "bcryptjs";
-import { validatePassword } from "../register/route";
+import { validatePassword } from "@/lib/utils/validatePassword";
 
 export async function POST(request: NextRequest) {
   try {

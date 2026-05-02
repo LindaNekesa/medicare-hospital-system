@@ -1,24 +1,39 @@
-import React from "react";
-import Link from "next/link";
+"use client"
+
+import Link from "next/link"
+import { cn } from "@/lib/utils"
+import { usePathname } from "next/navigation"
+
+const links = [
+  { name: "Dashboard", href: "/dashboard" },
+  { name: "Appointments", href: "/appointments" },
+  { name: "Medical Records", href: "/records" },
+  { name: "Profile", href: "/profile" },
+]
 
 export default function Sidebar() {
+  const pathname = usePathname()
+
   return (
-    <aside className="hidden md:flex flex-col w-64 bg-gray-800 text-white h-screen p-6">
-      <h2 className="text-2xl font-bold mb-6">Menu</h2>
-      <nav className="flex flex-col space-y-4">
-        <Link href="/dashboard" className="hover:bg-gray-700 px-4 py-2 rounded transition">
-          Dashboard
-        </Link>
-        <Link href="/patients" className="hover:bg-gray-700 px-4 py-2 rounded transition">
-          Patients
-        </Link>
-        <Link href="/appointments" className="hover:bg-gray-700 px-4 py-2 rounded transition">
-          Appointments
-        </Link>
-        <Link href="/settings" className="hover:bg-gray-700 px-4 py-2 rounded transition">
-          Settings
-        </Link>
+    <aside className="h-screen w-64 bg-white border-r p-4">
+      <h1 className="text-xl font-bold mb-6">Medicare</h1>
+
+      <nav className="space-y-2">
+        {links.map((link) => (
+          <Link
+            key={link.href}
+            href={link.href}
+            className={cn(
+              "block px-3 py-2 rounded-md text-sm transition",
+              pathname === link.href
+                ? "bg-blue-600 text-white"
+                : "text-gray-700 hover:bg-gray-100"
+            )}
+          >
+            {link.name}
+          </Link>
+        ))}
       </nav>
     </aside>
-  );
+  )
 }

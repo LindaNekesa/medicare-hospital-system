@@ -1,37 +1,26 @@
 import * as React from "react"
+import { cn } from "@/lib/utils"
 
-type Variant = "default" | "ghost" |"outline"
-type Size = "default" | "icon-sm"
-
-interface ButtonProps
+export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: Variant
-  size?: Size
+  variant?: "default" | "outline"
 }
 
-export function Button({
-  className = "",
-  variant = "default",
-  size = "default",
-  ...props
-}: ButtonProps) {
-  const base = "rounded font-medium transition"
-
-  const variants = {
-    default: "bg-blue-600 text-white hover:bg-blue-700",
-    ghost:   "bg-transparent hover:bg-gray-100 text-gray-700",
-    outline: "border border-gray-300 bg-white text-gray-700 hover:bg-gray-50",
+export const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
+  ({ className, variant = "default", ...props }, ref) => {
+    return (
+      <button
+        ref={ref}
+        className={cn(
+          "px-4 py-2 rounded-md text-sm font-medium transition",
+          variant === "default" && "bg-blue-600 text-white hover:bg-blue-700",
+          variant === "outline" && "border border-gray-300",
+          className
+        )}
+        {...props}
+      />
+    )
   }
+)
 
-  const sizes = {
-    default: "px-4 py-2",
-    "icon-sm": "p-2 text-sm"
-  }
-
-  return (
-    <button
-      className={`${base} ${variants[variant]} ${sizes[size]} ${className}`}
-      {...props}
-    />
-  )
-}
+Button.displayName = "Button"

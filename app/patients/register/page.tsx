@@ -1,3 +1,4 @@
+"use client"
 import PatientRegistrationForm from "@/components/patients/PatientRegistrationForm"
 import PatientTable from "@/components/patients/PatientsTable"
 import PatientSearch from "@/components/patients/PatientSearch"
